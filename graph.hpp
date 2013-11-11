@@ -5,10 +5,11 @@
 #include <iostream>
 #include <list>
 
-namespace graph
+namespace graph_ns
 {
 class Edge;
 class Node;
+typedef size_t node_id;
 
 class Node{
 public:
@@ -67,6 +68,9 @@ public:
         }
     }
 
+    size_t number_of_nodes() { return node_list_.size(); }
+    size_t number_of_edges() { return edge_list_.size(); }
+
     /**
      * create a new node
      */
@@ -88,6 +92,7 @@ public:
                 return *iter;
             }
         }
+        return NULL;
     }
 
     /**
