@@ -1,2 +1,2 @@
-test: test.cpp graph.hpp
-	g++ -o test -Wall test.cpp graph.hpp
+test: test.cpp graph.hpp breadth_first_search.hpp
+	g++ -o test -Wall $<

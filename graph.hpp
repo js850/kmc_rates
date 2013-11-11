@@ -10,6 +10,12 @@ namespace graph_ns
 class Edge;
 class Node;
 typedef size_t node_id;
+typedef Node * node_ptr;
+typedef Edge * edge_ptr;
+typedef int color_type;
+color_type color_white = 0;
+color_type color_grey = 1;
+color_type color_black = 4;
 
 class Node{
 public:
@@ -22,6 +28,8 @@ public:
     {}
 
     void add_out_edge(Edge * edge);
+    Edge * first_out_edge(){ return first_outgoing_; }
+    size_t id() const { return id_; }
 };
 
 class Edge{
@@ -30,11 +38,15 @@ public:
     Node * tail_; // node the edge comes from
     Edge * next_; // next edge with same originating node
 
-    Edge(Node * head, Node * tail):
+    Edge(Node * tail, Node * head):
         head_(head),
         tail_(tail),
         next_(NULL)
     {}
+
+    Edge * next_edge(){ return next_; }
+    Node * head(){ return head_; }
+    Node * tail(){ return tail_; }
 };
 
 void Node::add_out_edge(Edge * edge)
@@ -80,6 +92,11 @@ public:
         node_list_.push_back(node);
         return node->id_;
     }
+    void add_nodes(size_t n){
+        for (size_t i = 0; i < n; ++i){
+            add_node();
+        }
+    }
 
     /**
      * return the node with given node id
@@ -108,6 +125,7 @@ public:
     }
 
 };
+
 
 }
 
