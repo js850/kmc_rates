@@ -65,7 +65,7 @@ void Node::add_out_edge(Edge * edge)
 
 class Graph
 {
-    std::list<Node *> node_list_;
+    std::map<node_id, Node *> node_map_;
     std::list<Edge *> edge_list_;
 
     node_id next_node_id_;
@@ -77,18 +77,21 @@ public:
 
     ~Graph()
     {
-        // delete all the nodes and edges
-        for (std::list<Node *>::iterator iter = node_list_.begin();
-                iter != node_list_.end(); ++iter){
-            delete *iter;
+        // delete all nodes
+        typedef std::map<node_id, Node *> maptype;
+        for (maptype::iterator iter = node_map_.begin();
+                iter != node_map_.end(); ++iter){
+            Node * node = iter->second;
+            delete node;
         }
+        // delete all edges
         for (std::list<Edge *>::iterator iter = edge_list_.begin();
                 iter != edge_list_.end(); ++iter){
             delete *iter;
         }
     }
 
-    node_id number_of_nodes() { return node_list_.size(); }
+    node_id number_of_nodes() { return node_map_.size(); }
     node_id number_of_edges() { return edge_list_.size(); }
 
     /**
@@ -97,8 +100,8 @@ public:
     node_id add_node(){
         Node *node = new Node(next_node_id_);
         next_node_id_++;
-        node_list_.push_back(node);
-        return node->id_;
+        node_map_.insert(std::pair<node_id, Node *> (node->id(), node));
+        return node->id();
     }
 
     /**
@@ -113,14 +116,14 @@ public:
     /**
      * return a pointer to the node with given node id
      */
-    Node * get_node(node_id node_id)
+    Node * get_node(node_id nodeid)
     {
-        for (std::list<Node *>::iterator iter = node_list_.begin();
-                iter != node_list_.end(); ++iter){
-            if ((*iter)->id_ == node_id){
-                return *iter;
-            }
+        typedef std::map<node_id, Node *> maptype;
+        maptype::iterator iter = node_map_.find(nodeid);
+        if (iter == node_map_.end()){
+            return NULL;
         }
+        return iter->second;
         return NULL;
     }
 
