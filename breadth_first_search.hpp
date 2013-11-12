@@ -13,20 +13,23 @@ namespace graph_ns
 {
 class BreadthFirstSearch
 {
-    
     Graph * graph_;
     std::vector<color_type> node_color;
-    Edge * current_edge_;
     std::queue<Node *> node_queue_;
     bool start_;
+
+    // these hold the current state of the iteration
+    Node::out_edge_list::iterator edge_iter_;
+    Node::out_edge_list * edge_list;
 
 public:
     BreadthFirstSearch(Graph * graph, node_id n):
         graph_(graph),
         node_color(graph_->number_of_nodes(), color_white),
-        current_edge_(NULL),
-        start_(true)
+        start_(true),
+        edge_list(NULL)
     {
+        // add the first node to the queue
         assert(n < graph_->number_of_nodes());
         node_color[n] = color_grey;
         Node * node = graph_->get_node(n);
@@ -35,14 +38,14 @@ public:
 
     Edge * get_next_edge()
     {
-        Edge * next_edge = NULL;
         if ( node_queue_.empty() ){
             return NULL;
         } else if (start_){
             start_ = false;
             Node *u = node_queue_.front();
-            next_edge = u->first_out_edge();
-        } else if (current_edge_ == NULL){
+            edge_list = &(u->get_out_edges());
+            edge_iter_ = edge_list->begin();
+        } else if (edge_iter_ == edge_list->end()){
             // done with this node.  time to go on to the next node.
             // pop the old node and color it black
             Node * uold = node_queue_.front();
@@ -52,23 +55,23 @@ public:
 
             // get the next node from the front of the queue
             if (node_queue_.empty()){
-                next_edge = NULL;
+                edge_iter_ = edge_list->end();
             } else {
-                Node * v = node_queue_.front();
-                next_edge = v->first_out_edge();
+                Node * u = node_queue_.front();
+                edge_list = &(u->get_out_edges());
+                edge_iter_ = edge_list->begin();
             }
         } else {
             // got to next out edge from this node
-            next_edge = current_edge_->next_edge();
+            ++edge_iter_;
         }
 
-        current_edge_ = next_edge;
-        if (next_edge == NULL){
+        if (edge_iter_ == edge_list->end()){
             return get_next_edge();
         } else {
             // examine the head of the current edge if it's color is white then
             // color it grey and add it to the queue
-            Node * v = next_edge->head();
+            Node * v = (*edge_iter_)->head();
             assert(v!=NULL);
             assert(v->id() < node_color.size());
             color_type c = node_color[v->id()];
@@ -77,7 +80,7 @@ public:
                 node_queue_.push(v);
             }
         }
-        return next_edge;
+        return *edge_iter_;
 
     }
 };

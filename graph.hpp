@@ -23,16 +23,20 @@ color_type color_black = 4;
  */
 class Node{
 public:
+    typedef std::list<Edge *> out_edge_list;
+private:
     node_id id_;
-    Edge * first_outgoing_; // first outgoing edge
+    out_edge_list out_edge_list_; // list of outgoing edges
+public:
+
+    //Edge * first_outgoing_; // first outgoing edge
 
     Node(node_id id):
-        id_(id),
-        first_outgoing_(NULL)
+        id_(id)
     {}
 
     void add_out_edge(Edge * edge);
-    Edge * first_out_edge(){ return first_outgoing_; }
+    out_edge_list & get_out_edges(){ return out_edge_list_; }
     node_id id() const { return id_; }
 };
 
@@ -58,8 +62,7 @@ public:
 
 void Node::add_out_edge(Edge * edge)
 {
-    edge -> next_edge_ = first_outgoing_;
-    first_outgoing_ = edge;
+    out_edge_list_.push_back(edge);
 }
 
 
