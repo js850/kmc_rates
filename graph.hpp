@@ -43,22 +43,22 @@ class Edge{
 public:
     Node * head_; // node the edge points to
     Node * tail_; // node the edge comes from
-    Edge * next_; // next edge with same originating node
+    Edge * next_edge_; // next edge with same originating node
 
     Edge(Node * tail, Node * head):
         head_(head),
         tail_(tail),
-        next_(NULL)
+        next_edge_(NULL)
     {}
 
-    Edge * next_edge(){ return next_; }
+    Edge * next_edge(){ return next_edge_; }
     Node * head(){ return head_; }
     Node * tail(){ return tail_; }
 };
 
 void Node::add_out_edge(Edge * edge)
 {
-    edge -> next_ = first_outgoing_;
+    edge -> next_edge_ = first_outgoing_;
     first_outgoing_ = edge;
 }
 
