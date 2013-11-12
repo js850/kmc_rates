@@ -16,32 +16,34 @@ class BreadthFirstSearch
     Graph * graph_;
     std::vector<color_type> node_color;
     std::queue<Node *> node_queue_;
-    bool start_;
 
     // these hold the current state of the iteration
     Node::out_edge_list::iterator edge_iter_;
     Node::out_edge_list * edge_list;
 
+    unsigned long Nedges;
+    unsigned long Nnodes;
+
 public:
     BreadthFirstSearch(Graph * graph, node_id n):
         graph_(graph),
         node_color(graph_->number_of_nodes(), color_white),
-        start_(true),
-        edge_list(NULL)
+        edge_list(NULL),
+        Nedges(0)
     {
         // add the first node to the queue
         assert(n < graph_->number_of_nodes());
         node_color[n] = color_grey;
         Node * node = graph_->get_node(n);
         node_queue_.push(node);
+        ++Nnodes;
     }
 
     Edge * get_next_edge()
     {
         if ( node_queue_.empty() ){
             return NULL;
-        } else if (start_){
-            start_ = false;
+        } else if (Nedges == 0){
             Node *u = node_queue_.front();
             edge_list = &(u->get_out_edges());
             edge_iter_ = edge_list->begin();
@@ -78,8 +80,10 @@ public:
             if (c == color_white){
                 node_color[v->id()] = color_grey;
                 node_queue_.push(v);
+                ++Nnodes;
             }
         }
+        ++Nedges;
         return *edge_iter_;
 
     }
