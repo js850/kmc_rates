@@ -81,17 +81,18 @@ public:
     ~Graph()
     {
         // delete all nodes
-        typedef std::map<node_id, Node *> maptype;
-        for (maptype::iterator iter = node_map_.begin();
-                iter != node_map_.end(); ++iter){
-            Node * node = iter->second;
+        for (auto & mapval : node_map_){
+            Node * node = mapval.second;
             delete node;
         }
+        node_map_.clear();
+
         // delete all edges
-        for (std::list<Edge *>::iterator iter = edge_list_.begin();
-                iter != edge_list_.end(); ++iter){
-            delete *iter;
+        for (auto & edge : edge_list_){
+            delete edge;
         }
+        edge_list_.clear();
+
     }
 
     node_id number_of_nodes() { return node_map_.size(); }
