@@ -19,17 +19,15 @@ class BreadthFirstSearch
 
     // these hold the current state of the iteration
     Node::out_edge_list::iterator edge_iter_;
-    Node::out_edge_list * edge_list;
+    Node::out_edge_list * edge_list = NULL;
 
-    unsigned long Nedges;
-    unsigned long Nnodes;
+    unsigned long Nedges = 0;
+    unsigned long Nnodes = 0;
 
 public:
     BreadthFirstSearch(Graph * graph, node_id n):
         graph_(graph),
-        node_color(graph_->number_of_nodes(), color_white),
-        edge_list(NULL),
-        Nedges(0)
+        node_color(graph_->number_of_nodes(), color_white)
     {
         // add the first node to the queue
         assert(n < graph_->number_of_nodes());
