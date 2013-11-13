@@ -47,15 +47,12 @@ class Edge{
 public:
     Node * head_; // node the edge points to
     Node * tail_; // node the edge comes from
-    Edge * next_edge_; // next edge with same originating node
 
     Edge(Node * tail, Node * head):
         head_(head),
-        tail_(tail),
-        next_edge_(NULL)
+        tail_(tail)
     {}
 
-    Edge * next_edge(){ return next_edge_; }
     Node * head(){ return head_; }
     Node * tail(){ return tail_; }
 };
