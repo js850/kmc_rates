@@ -11,7 +11,75 @@
 
 namespace graph_ns
 {
+
+//template <class Graph>
+class BFSVisitor {
+protected:
+    typedef Node * node_t;
+    typedef Edge * edge_t;
+public:
+    BFSVisitor(){}
+    //void initialize_vertex(node_t u, Graph & g){}
+    void discover_node(node_t u, Graph & g){}
+    void examine_node(node_t u, Graph & g){}
+    void examine_edge(edge_t e, Graph & g){}
+    void tree_edge(edge_t e, Graph & g){}
+    //void non_tree_edge(edge_t e, Graph & g){}
+    //void gray_target(edge_t e, Graph & g){}
+    //void black_target(edge_t e, Graph & g){}
+    void finish_node(node_t u, Graph & g){}
+};
+
+template<class bfsvisitor>
 class BreadthFirstSearch
+{
+    Graph & graph_;
+    std::vector<color_type> node_color;
+    std::queue<Node *> node_queue_;
+
+    unsigned long Nedges = 0;
+    unsigned long Nnodes = 0;
+
+    bfsvisitor & vis;
+
+public:
+    BreadthFirstSearch(Graph & graph, node_id n, bfsvisitor & visitor):
+        graph_(graph),
+        node_color(graph_.number_of_nodes(), color_white),
+        vis(visitor)
+    {
+        // add the first node to the queue
+        assert(n < graph_.number_of_nodes());
+        node_color[n] = color_grey;
+        Node * node = graph_.get_node(n);
+        node_queue_.push(node);
+        vis.discover_node(node, graph_);
+        ++Nnodes;
+    }
+
+    void run(){
+        while (! node_queue_.empty() ){
+            auto node = node_queue_.front();             
+            vis.examine_node(node, graph_);            
+            node_queue_.pop();
+            for (auto edge: node->get_out_edges()){      
+                vis.examine_edge(edge, graph_);
+                auto u = edge->head();
+                if (node_color[u->id()] == color_white){ 
+                    vis.tree_edge(edge, graph_);
+                    vis.discover_node(u, graph_);
+                    node_color[u->id()] = color_grey;    
+                    node_queue_.push(u);
+                }
+            }
+            node_color[node->id()] = color_black;
+            vis.finish_node(node, graph_);
+        }
+    }
+};
+
+
+class BreadthFirstSearchEdges
 {
     Graph * graph_;
     std::vector<color_type> node_color;
@@ -25,7 +93,7 @@ class BreadthFirstSearch
     unsigned long Nnodes = 0;
 
 public:
-    BreadthFirstSearch(Graph * graph, node_id n):
+    BreadthFirstSearchEdges(Graph * graph, node_id n):
         graph_(graph),
         node_color(graph_->number_of_nodes(), color_white)
     {
