@@ -70,7 +70,7 @@ class TestGraphReduction3(unittest.TestCase):
         rBA = reducer.get_rate_BA()
         reducer.check_graph()
         self.assertEqual(reducer.graph.number_of_nodes(), 2)
-        self.assertEqual(reducer.graph.number_of_edges(), 1)
+        self.assertEqual(reducer.graph.number_of_edges(), 4)
         self.assertAlmostEqual(rAB, self.final_rate, 7)
         self.assertAlmostEqual(rBA, self.final_rate, 7)
 
@@ -87,7 +87,7 @@ class TestGraphReductionRandom(unittest.TestCase):
     def do_test(self, A, B, nnodes=20, nedges=20):
         maker = _MakeRandomGraph(nnodes=20, nedges=20, node_set=A+B)
         graph = maker.run()
-        reducer = GraphReduction(graph, A, B)  
+        reducer = GraphReduction(graph, A, B, debug=False)  
         reducer.check_graph()
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
@@ -95,16 +95,16 @@ class TestGraphReductionRandom(unittest.TestCase):
         reducer.check_graph()
         self.assertEqual(reducer.graph.number_of_nodes(), len(A) + len(B))
         if len(A) == 1 and len(B) == 1:
-            self.assertEqual(reducer.graph.number_of_edges(), 1)
-            
+            self.assertLessEqual(reducer.graph.number_of_edges(), 4)
+             
     def test(self):
         A, B = [0], [1]
         self.do_test(A, B)
-
+ 
     def test_setA(self):
         A, B = [0, 1, 2], [3]
         self.do_test(A, B)
-
+  
     def test_setAB(self):
         A, B = [0, 1, 2], [3, 4, 5, 6]
         self.do_test(A, B)

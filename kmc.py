@@ -41,10 +41,10 @@ class KineticMonteCarlo(object):
     def next(self, u):
         udata = self.graph.node[u]
         
-        rates = {u:udata["P"]}
-        for x, v, uvdata in self.graph.edges(u, data=True):
+        rates = dict()
+        for x, v, uvdata in self.graph.edges_iter(u, data=True):
             assert u == x
-            kuv = uvdata[GraphReduction.Pkey(u, v)]
+            kuv = uvdata["P"]
             rates[v] = kuv
         
         unext = weighted_pick(rates)
