@@ -1,13 +1,14 @@
+import numpy as np
+
 from kmc_rates import GraphReduction, graph_from_rates
 from kmc import KineticMonteCarlo
 
 
 def main():
-    nnodes = 3
-    # make matrix of transition rates with three states
-    transition_matrix = [ [0., 1., 1.], 
-                          [1., 0., 1.], 
-                          [1., 1., 0.] ]
+    nnodes = 6
+    # the graph need not be made from a transition matrix, but it's an 
+    # easy way to make a random graph ensuring that everything is connected
+    transition_matrix = np.random.uniform(0,1,[nnodes, nnodes])
     print "Computing rates for transition matrix"
     print transition_matrix
     # an easy way to set up the graph is to make
@@ -23,8 +24,8 @@ def main():
     rate_graph_backup = rate_graph.copy()
 
     # we want to compute rates from node 0 to node 1
-    A = [0]
-    B = [1]
+    A = [0,1]
+    B = [2,3]
     
     # set up the class which will compute rates for us
     reducer = GraphReduction(rate_graph, A, B)
@@ -33,7 +34,6 @@ def main():
     print "computing the transition rate from nodes", A, "to nodes", B
     rAB, rBA = reducer.compute_rates()
     
-    print "the exact rate for this network is 1.0"
     print "the transition rate computed by graph transformation is", rAB
     
     # now to check the values do a kinetic monte carlo run

@@ -101,7 +101,7 @@ class KineticMonteCarlo(object):
             tavg += time
         
         tavg /= niter
-        print "mean first passage time", tavg
+#         print "mean first passage time", tavg
         return tavg
 
     def mean_rate(self, A, B, niter=1000, weights=None):
