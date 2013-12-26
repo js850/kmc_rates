@@ -12,7 +12,9 @@ getting started
 This package uses external packages numpy and networkx. Those can be installed
 from the python package index.
 The following few lines of code creates a random graph with 4 nodes and 
-then uses the graph renormalization method to compute the exact rates.::
+then uses the graph renormalization method to compute the exact rates.
+
+.. code:: python
 
     from kmc_rates import GraphReduction, graph_from_rates
     nnodes = 4
