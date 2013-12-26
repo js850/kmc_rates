@@ -124,12 +124,22 @@ class GraphReduction(object):
                      for x in group))
         norm = sum((self.weights[x] for x in group))
         return rate / norm
+    
+    def get_rate_AB(self):
+        """Return the transition rate from A to B
         
-    def get_final_rates(self):
-        """return the average inverse mean first passage time """
-        kAB = self._get_final_rate(self.A)
-        kBA = self._get_final_rate(self.B)
-        return kAB, kBA
+        This is the inverse mean first passage time averaged over the elements in A"""
+        return self._get_final_rate(self.A)
+    
+    def get_rate_BA(self):
+        """Return the transition rate from B to A
+        
+        This is the inverse mean first passage time averaged over the elements in B"""
+        return self._get_final_rate(self.B)
+    
+#     def get_final_rates(self):
+#         kBA = self._get_final_rate(self.B)
+#         return kAB, kBA
     
     def compute_rates(self):
         """do the computation to compute the rates"""
@@ -137,8 +147,8 @@ class GraphReduction(object):
         
         self._phase_two()
         
-        self.rateAB, self.rateBA = self.get_final_rates()
-        return self.rateAB, self.rateBA
+#         self.rateAB, self.rateBA = self.get_final_rates()
+#         return self.rateAB, self.rateBA
 
     def _phase_two_group(self, full_graph, group):
         """

@@ -31,7 +31,8 @@ def main():
     
     # do the calculation
     print "computing the transition rate from nodes", A, "to nodes", B
-    rAB, rBA = reducer.compute_rates()
+    reducer.compute_rates()
+    rAB = reducer.get_rate_AB()
     
     print "the exact rate for this network is 1.0"
     print "the transition rate computed by graph transformation is", rAB

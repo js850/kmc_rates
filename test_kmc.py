@@ -22,7 +22,9 @@ class TestKMC_GraphReduction(unittest.TestCase):
         graph = maker.run()
         graph_backup = graph.copy()
         reducer = GraphReduction(graph, A, B, weights=weights)  
-        rAB, rBA = reducer.compute_rates()
+        reducer.compute_rates()
+        rAB = reducer.get_rate_AB()
+        rBA = reducer.get_rate_BA()
          
         kmc = KineticMonteCarlo(graph_backup, debug=False)
         rAB_KMC = kmc.mean_rate(A, B, niter=1000, weights=weights)
