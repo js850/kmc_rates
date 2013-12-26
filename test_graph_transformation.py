@@ -2,8 +2,7 @@ import unittest
 import numpy as np
 import networkx as nx
 
-from pele.rates import RateCalculation
-from pele.rates._rate_calculations import GraphReduction, graph_from_rates
+from kmc_rates import GraphReduction, graph_from_rates
 
 
 class _MakeRandomGraph(object):
