@@ -7,6 +7,33 @@ The resulting rates are exact, in the sense of Kinetic Monte Carlo, but the
 analysis can be orders of magnitude faster than doing a Kinetic Monte Carlo
 simulation.
 
+getting started
+---------------
+This package uses external packages numpy and networkx. Those can be installed
+from the python package index.
+The following few lines of code creates a random graph with 4 nodes and 
+then uses the graph renormalization method to compute the exact rates.::
+
+    from kmc_rates import GraphReduction, graph_from_rates
+    nnodes = 4
+    # create a dictionary of transition rates
+    rates = dict()
+    for i in range(nnodes):
+        for j in range(nnodes):
+            if i != j:
+                rates[(i,j)] = np.random.rand()
+    # set up the calculation of the transition rate from node 0 to node 1
+    A = [0]
+    B = [1]
+    kmc_graph = graph_from_rates(rates)
+    reducer = GraphReduction(kmc_graph, A, B)
+    rAB, rBA = reducer.compute_rates()
+    print "the transition rate from nodes", A, "to nodes", B, "is", rAB
+
+See the examples files for more examples, including comparisons to kinetic
+Monte Carlo simulations,
+
+
 Description of the method
 -------------------------
 The rates are computed using the New Graph Transformation (NGT) method of

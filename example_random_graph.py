@@ -3,6 +3,25 @@ import numpy as np
 from kmc_rates import GraphReduction, graph_from_rates
 from kmc import KineticMonteCarlo
 
+def readme_example():
+    from kmc_rates import GraphReduction, graph_from_rates
+    nnodes = 4
+    # create a dictionary of transition rates
+    rates = dict()
+    for i in range(nnodes):
+        for j in range(nnodes):
+            if i != j:
+                rates[(i,j)] = np.random.rand()
+    
+    # set up the calculation of the transition rate from node 0 to node 1
+    A = [0]
+    B = [1]
+    kmc_graph = graph_from_rates(rates)
+    reducer = GraphReduction(kmc_graph, A, B)
+    rAB, rBA = reducer.compute_rates()
+    print "the transition rate from nodes", A, "to nodes", B, "is", rAB
+    
+    
 
 def main():
     nnodes = 6
@@ -45,4 +64,5 @@ def main():
         print "the KMC rate averaged over %8d iterations is %s. abs(rAB-rAB_KMC) = %s" % (niter, rAB_KMC, abs(rAB-rAB_KMC))
 
 if __name__ == "__main__":
-    main()
+    readme_example()
+#     main()
