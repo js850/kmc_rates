@@ -7,7 +7,7 @@ from collections import defaultdict
 import networkx as nx
 import numpy as np
 
-def graph_from_rates(rates):
+def kmcgraph_from_rates(rates):
     """create a graph for input to GraphReduction from a dictionary of rates
     
     Parameters
@@ -360,6 +360,13 @@ class GraphReduction(object):
         for b in self.B:
             if not self.graph.has_node(b):
                 raise Exception("an element in the product set is not in the graph")
+
+        # add node self loops with zero probability if they don't already exist
+        for u in self.graph.nodes():
+            try:
+                self._get_edge_data(u, u)
+            except:
+                self._add_edge(u, u)
         
         assert len(self.A.intersection(self.B)) == 0
 

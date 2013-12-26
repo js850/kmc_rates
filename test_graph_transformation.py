@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import networkx as nx
 
-from kmc_rates import GraphReduction, graph_from_rates
+from kmc_rates import GraphReduction, kmcgraph_from_rates
 
 
 class _MakeRandomGraph(object):
@@ -40,7 +40,7 @@ class _MakeRandomGraph(object):
         while(len(self.rates) < nedges):
             self.add_random_edge()
         print "made random graph with", len(self.nodes), "nodes and", len(self.rates) / 2, "edges"
-        return graph_from_rates(self.rates)
+        return kmcgraph_from_rates(self.rates)
     
     
 
@@ -54,7 +54,7 @@ def _three_state_graph():
             if i != j:
                 rates[(i,j)] = tmatrix[i][j]
 
-    return graph_from_rates(rates)
+    return kmcgraph_from_rates(rates)
 
 class TestGraphReduction3(unittest.TestCase):
     def setUp(self):

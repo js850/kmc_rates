@@ -1,4 +1,4 @@
-from kmc_rates import GraphReduction, graph_from_rates
+from kmc_rates import GraphReduction, kmcgraph_from_rates
 from kmc import KineticMonteCarlo
 
 
@@ -19,7 +19,7 @@ def main():
                 rates[(i,j)] = transition_matrix[i][j]
 
     # use the utility function to build the rate graph with the correct formatting
-    rate_graph = graph_from_rates(rates)
+    rate_graph = kmcgraph_from_rates(rates)
     rate_graph_backup = rate_graph.copy()
 
     # we want to compute rates from node 0 to node 1
