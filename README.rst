@@ -29,7 +29,8 @@ then uses the graph renormalization method to compute the exact rates.
     B = [1]
     kmc_graph = graph_from_rates(rates)
     reducer = GraphReduction(kmc_graph, A, B)
-    rAB, rBA = reducer.compute_rates()
+    reducer.compute_rates()
+    rAB = reducer.get_rate_AB()
     print "the transition rate from nodes", A, "to nodes", B, "is", rAB
 
 See the examples files for more examples, including comparisons to kinetic
