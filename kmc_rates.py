@@ -45,30 +45,24 @@ def graph_from_rates(rates):
         
     
     
-        
-        
-
-
 class GraphReduction(object):
     """
     class to apply the graph reduction method for finding transition rates between two groups of nodes
     
     Parameters
     ----------
-    graph : networkx.Graph object
-        An undirected graph specifying the connectivity, the initial transition
+    graph : networkx.DiGraph object
+        A directed graph specifying the connectivity, the initial transition
         probabilities and the occupation times.  The graph must have all the
         data in the correct format.  Each node must have the following keys in
         their attributes dictionary::
             
-            "P"   : the probability to stay in this state
             "tau" : occupation time
         
         Each edge between nodes u and v must have the following keys in their
         attributes dictionary:
         
-            ("P", u, v) : transition probability from u to v
-            ("P", v, u) : transition probability from v to u
+            "P" : transition probability from u to v
         
     A, B : iterables
         Groups of nodes specifying the reactant and product groups.  The rates
@@ -146,10 +140,6 @@ class GraphReduction(object):
         This is the inverse mean first passage time averaged over the elements in B"""
         return self._get_final_rate(self.B)
     
-#     def get_final_rates(self):
-#         kBA = self._get_final_rate(self.B)
-#         return kAB, kBA
-    
     def compute_rates(self):
         """do the computation to compute the rates"""
         self._phase_one_remove_intermediates()
@@ -175,18 +165,23 @@ class GraphReduction(object):
                 x = Acopy.pop()
                 self.remove_node(x)
             
+            if self.graph.out_degree(a) <= 1:
+                raise Exception("node %s is not connected" % (a))
             adata = self.graph.node[a]
             # in the paper, to avoid numerical errors DJW computes 
-            # 1-Pxx as sum_j Pxj if Pxx > .99         
-            self._final_Pxx[a] = self._get_edge_data(a, a)["P"]
+            # 1-Pxx as sum_j Pxj if Pxx > .99
+            Paa = self._get_edge_data(a, a)["P"]
+            if Paa > 0.999:
+                print "warning, Pxx is very large (%s), numerical precision problems might be in your future" % (Paa)
+            self._final_Pxx[a] = Paa
+
             self._final_tau[a] = adata["tau"]
         
     def _phase_two(self):
         """
-        in this second phase we deal with starting and ending sets that have more
+        in this second phase we deal with reactant and product sets (A and B) that have more
         than 1 element.  This follows the text above equation 19 in Wales 2009.
         This is called after all the intermediates have been decimated.
-        
         
         for each element a in set A, compute tauF_a and PF_aa by decimating all 
         nodes in A except a.  Then the final rate from A to B
@@ -210,33 +205,31 @@ class GraphReduction(object):
             
     def _add_edge(self, u, v):
         """add an edge to the graph and initialize it with the appropriate data"""
-        if self.debug: print "creating edge", u, v
+        if self.debug: print "  creating edge", u, v
         self.graph.add_edge(u, v, P=0.)
         return self._get_edge_data(u, v)
     
-    @staticmethod
-    def Pkey(u, v):
-        """return the edge attribute key for the transition probability from u to v"""
-        return ("P", u, v)
-    
-    def _get_edge_data(self, u, v, graph=None):
-        if graph is None: graph = self.graph
-        return graph[u][v]
+    def _get_edge_data(self, u, v):
+        return self.graph[u][v]
 
     def _update_edge(self, u, v, x, Pxx):
         """
         update the probabilities of transition between u and v upon removing node x
         
         Puv -> Puv + Pux * Pxv / (1-Pxx)
+        
+        u==v is fine, but u==x or v==x is not
         """
         assert u != x
         assert v != x
         try:
-            Pux = self._get_edge_data(u, x)["P"]
-            Pxv = self._get_edge_data(x, v)["P"]
+            uxdata = self._get_edge_data(u, x)
+            xvdata = self._get_edge_data(x, v)
         except KeyError:
             # if either Pux or Pxv does not exist then nothing need be done
             return
+        Pux = uxdata["P"]
+        Pxv = xvdata["P"]
         # if the edge u, v doesn't exist, create it.
         try:
             uvdata = self._get_edge_data(u, v)
@@ -245,7 +238,8 @@ class GraphReduction(object):
         
         if self.debug:
             Puvold = uvdata["P"]
-            
+        
+        # update transition probability
         uvdata["P"] += Pux * Pxv / (1.-Pxx)
         
         if self.debug:
@@ -260,8 +254,6 @@ class GraphReduction(object):
         Puu -> Puu + Pux * Pxu / (1-Pxx)
         """
         assert x != u
-        # in the paper, to avoid numerical errors DJW computes 
-        # 1-Pxx as sum_j Pxj if Pxx > .99         
         
         udata = self.graph.node[u]
 
@@ -280,20 +272,21 @@ class GraphReduction(object):
         """
         remove node x from the graph and update the neighbors of x
         """
-        neibs = self.graph.successors(x) + self.graph.predecessors(x)
-        neibs = set(neibs) # to eliminate duplicates
+        neibs = set(self.graph.successors(x) + self.graph.predecessors(x))
         neibs.remove(x)
-#         neibs = [(v, data) for a, v, data in self.graph.edges(x, data=True)]
         tau_x = self.graph.node[x]["tau"]
+        # in the paper, to avoid numerical errors DJW computes 
+        # 1-Pxx as sum_j Pxj if Pxx > .99         
         Pxx = self._get_edge_data(x, x)["P"]
-#         print "neighbors", neibs
+        if Pxx > 0.999:
+            print "warning, Pxx is very large (%s), numerical precision problems might be in your future" % (Pxx)
         
         if self.debug:
             print "removing node", x, tau_x, Pxx
+
         # update node data
         for u in neibs:
-            if x != u:
-                self._update_node(u, x, tau_x, Pxx)
+            self._update_node(u, x, tau_x, Pxx)
         
         # update the edges between neighbors
         for u in neibs:
@@ -310,10 +303,9 @@ class GraphReduction(object):
 
         total_prob = 0.
         for x, v, uvdata in self.graph.out_edges_iter(u, data=True):
-            print "  Pxv", uvdata["P"], ": v =", v
-#            assert 1 >= uvdata[self.Pkey(u, v)] >= 0
-#            assert 1 >= uvdata[self.Pkey(v, u)] >= 0
-            total_prob += uvdata["P"]
+            Puv = uvdata["P"]
+            print "  Pxv", Puv, ": v =", v
+            total_prob += Puv
         
         print "  total prob", total_prob
 
@@ -321,13 +313,11 @@ class GraphReduction(object):
         udata = self.graph.node[u]  
 #        print "checking node", u
         assert udata["tau"] >= 0
-#         assert 1 >= udata["P"] >= 0
 
-        total_prob = 0.#udata["P"]
+        total_prob = 0.
         for x, v, uvdata in self.graph.out_edges_iter(u, data=True):
             Puv = uvdata["P"]
             assert 1 >= Puv >= 0
-#             assert 1 >= uvdata[self.Pkey(v, u)] >= 0
             total_prob += Puv
 
         assert np.abs(total_prob - 1.) < 1e-6, "%s: total_prob %g" % (str(u), total_prob)
@@ -392,69 +382,4 @@ class GraphReduction(object):
                 self._print_node_data(u)
                 raise
 
-#
-# only testing stuff below here
-#
-
-
-def _make_random_graph(nnodes=16):
-    L = int(np.sqrt(nnodes))
-    graph = nx.grid_graph([L,L], periodic=False)
-    print graph
-    tool = GraphReduction
-    
-    for u, udata in graph.nodes(data=True):
-        udata["P"] = np.random.rand()
-        udata["tau"] = np.random.rand()
-    
-    for u, v, uvdata in graph.edges_iter(data=True):
-        uvdata[tool.Pkey(u, v)] = np.random.rand()
-        uvdata[tool.Pkey(v, u)] = np.random.rand()
-    
-    # now normalize
-    for u, udata in graph.nodes(data=True):
-        total_prob = udata["P"]
-        edges = [(v, data) for x, v, data in graph.edges(u, data=True)]
-        for v, uvdata in edges:
-            assert v != u
-            total_prob += uvdata[tool.Pkey(u, v)]
-        
-        udata["P"] /= total_prob
-        for v, uvdata in edges:
-            uvdata[tool.Pkey(u, v)] /= total_prob
-
-
-#    tool.check_graph()
-    return graph
-
-
-
-
-def test(nnodes=36):
-    graph = _make_random_graph(nnodes)
-    reducer = GraphReduction(graph, [], [])
-
-    x = graph.nodes()[0]
-    print "removing node", x
-    reducer.remove_node(x)
-    reducer.check_graph()
-    
-    x = graph.nodes()[0]
-    print "removing node", x
-    reducer.remove_node(x)
-    reducer.check_graph()
-    
-    A = set(graph.nodes()[:2])
-    B = set(graph.nodes()[-2:])
-    print "A B", A, B
-    reducer = GraphReduction(graph, A, B)
-    rAB, rBA = reducer.compute_rates()
-    reducer.check_graph()
-    print "number of nodes", graph.number_of_nodes()
-    print "rates", rAB, rBA
-
-if __name__ == "__main__":
-#     unittest.main()
-    test()
-    
     

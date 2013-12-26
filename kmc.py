@@ -30,7 +30,7 @@ class KineticMonteCarlo(object):
     
     Parameters
     ----------
-    graph : networkx.Graph()
+    graph : networkx.DiGraph()
         see GraphReduction for a description of how to attach transition
         probabilities and waiting times
     """
@@ -41,15 +41,15 @@ class KineticMonteCarlo(object):
     def next(self, u):
         udata = self.graph.node[u]
         
-        rates = dict()
+        transition_probabilities = dict()
         for x, v, uvdata in self.graph.edges_iter(u, data=True):
             assert u == x
             kuv = uvdata["P"]
-            rates[v] = kuv
+            transition_probabilities[v] = kuv
         
-        unext = weighted_pick(rates)
+        unext = weighted_pick(transition_probabilities)
 #        print "rates", u, ":", rates, "chosen", unext
-        
+
         return unext, udata["tau"]
         
     
