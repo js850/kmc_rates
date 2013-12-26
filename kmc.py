@@ -130,3 +130,35 @@ class KineticMonteCarlo(object):
             weights = np.array([weights[a] for a in A])
             return np.sum(weights / mfpt) / weights.sum()
 
+    def committor(self, x, A, B, maxiter=100000):
+        """starting from x return True if the trajectory ends up B before it enters A
+        """
+        A = set(A)
+        B = set(B)
+
+        current_state = x
+        total_time = 0.
+        niter = 0
+        while True:
+            unext, time = self.next(current_state)
+            current_state = unext
+            total_time += time
+            niter += 1
+#             print "in state", current_state
+            if niter >= maxiter:
+                raise Exception("committor maxiter reached")
+            if current_state in A or current_state in B:
+                break
+
+        return current_state in B
+    
+    def committor_probability(self, x, A, B, niter=1000):
+        nB = 0
+        for i in xrange(niter):
+            result = self.committor(x, A, B)
+            if result:
+                nB += 1
+        pB = float(nB) / niter
+        return pB
+    
+        

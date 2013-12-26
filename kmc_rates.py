@@ -125,6 +125,16 @@ class GraphReduction(object):
         norm = sum((self.weights[x] for x in group))
         return rate / norm
     
+    def get_committor_probability(self, x):
+        """return the committor probability for node x
+        
+        x must be in A or in B. If x is in A return the the probability
+        that a trajectory starting at x gets to B before returning to x.
+        If x is in B return the the probability
+        that a trajectory starting at x gets to A before returning to x.
+        """
+        return 1. - self._final_Pxx[x]
+    
     def get_rate_AB(self):
         """Return the transition rate from A to B
         
