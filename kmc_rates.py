@@ -100,16 +100,19 @@ class GraphReduction(object):
         self.initial_check_graph()
         self.check_graph()
     
+    def _remove_nodes(self, nodes):
+        nodes = list(nodes)
+        # The calculation is faster if we remove the nodes with the least edges first
+        nodes.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
+        for x in nodes:
+            self.remove_node(x)
+
+    
     def _phase_one_remove_intermediates(self):
         intermediates = set(self.graph.nodes())
         intermediates.difference_update(self.A)
         intermediates.difference_update(self.B)
-        intermediates = list(intermediates)
-        # The calculation is faster if we remove the nodes with the least edges first
-        intermediates.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
-        
-        for x in intermediates:
-            self.remove_node(x)
+        self._remove_nodes(intermediates)
     
     def _get_final_rate(self, group):
         # should maybe be careful when Pxx is very close to 1.
@@ -389,4 +392,45 @@ class GraphReduction(object):
                 self._print_node_data(u)
                 raise
 
-    
+    def compute_committor_probability(self, x):
+        """compute the probability that trajectory starting from x reaches B before it reaches A
+        
+        Notes
+        -----
+        Since compute_rates() modifies the original graph this must be called before copute_rates()
+        """
+        if not self.graph.has_node(x):
+            raise ValueError("The starting node is not in the graph."
+                             + "  This could be because you have already called compute_rates()."
+                             )
+        
+        # make a copy of the graph
+        backup_graph = self.graph.copy()
+        
+        # remove all nodes except x and those in A and B
+        nodes = set(self.graph.nodes())
+        nodes.remove(x)
+        nodes.difference_update(self.A)
+        nodes.difference_update(self.B)
+        self._remove_nodes(nodes)
+        
+        PxA = sum([data["P"] for (u, v, data) in 
+                      self.graph.out_edges_iter([x], data=True) if v in self.A
+                      ])
+        PxB = sum([data["P"] for (u, v, data) in 
+                      self.graph.out_edges_iter([x], data=True) if v in self.B
+                      ])
+        print PxA, PxB, PxA + PxB
+        
+        # These will not necessarily sum to 1 because of the self transition probabilities,
+        sum_prob = PxA + PxB
+        PxA /= sum_prob
+        PxB /= sum_prob
+        
+        # restore the original graph
+        self.graph = backup_graph
+        
+        return PxB
+        
+        
+        

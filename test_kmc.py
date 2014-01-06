@@ -17,17 +17,25 @@ class TestKMC(unittest.TestCase):
     
 
 class TestKMC_GraphReduction(unittest.TestCase):
-    def compare(self, A, B, nnodes=10, nedges=20, weights=None):
+    def compare(self, A, B, nnodes=10, nedges=20, weights=None, x=1):
         print ""
         maker = _MakeRandomGraph(nnodes=nnodes, nedges=nedges, node_set=A+B)
         graph = maker.run()
         graph_backup = graph.copy()
-        reducer = GraphReduction(graph, A, B, weights=weights)  
+        reducer = GraphReduction(graph, A, B, weights=weights)
+        kmc = KineticMonteCarlo(graph_backup, debug=False)
+        
+        # test compute_committor_probability()
+        PxB = reducer.compute_committor_probability(x)
+        PxB_kmc = kmc.committor_probability(x, A, B, niter=1000)
+        print "committor probability    ", x, "->", B, "=", PxB
+        print "committor probability kmc", x, "->", B, "=", PxB_kmc
+        self.assertAlmostEqual(PxB, PxB_kmc, delta=.1)
+        
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
         rBA = reducer.get_rate_BA()
          
-        kmc = KineticMonteCarlo(graph_backup, debug=False)
         rAB_KMC = kmc.mean_rate(A, B, niter=1000, weights=weights)
         
         print "NGT rate A->B", rAB
@@ -50,7 +58,7 @@ class TestKMC_GraphReduction(unittest.TestCase):
     def test(self):
         A = [0]
         B = [1]
-        self.compare(A, B)
+        self.compare(A, B, x=3)
 
     def test_group(self, nnodes=10, nedges=20):
         A = [0,1]
@@ -63,7 +71,7 @@ class TestKMC_GraphReduction(unittest.TestCase):
         weights = dict()
         for x in A+B:
             weights[x] = np.random.uniform(0,1)
-        self.compare(A, B, weights=weights)
+        self.compare(A, B, weights=weights, x=4)
 
 
 if __name__ == "__main__":
