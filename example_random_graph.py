@@ -29,7 +29,7 @@ def main():
     # the graph need not be made from a transition matrix, but it's an 
     # easy way to make a random graph ensuring that everything is connected
     transition_matrix = np.random.uniform(0,1,[nnodes, nnodes])
-    print "Computing rates for transition matrix"
+    print "Computing rates and committor probabilities for transition matrix"
     print transition_matrix
     # an easy way to set up the graph is to make
     # a dictionary of rates
@@ -45,27 +45,35 @@ def main():
 
     # we want to compute rates from node 0 to node 1
     A = [0,1]
-    B = [2,3]
+    B = [4,5]
+    x = 2
     
     # set up the class which will compute rates for us
     reducer = GraphReduction(kmc_graph, A, B)
-    reducer.compute_rates()
-    rAB = reducer.get_rate_AB()
     
-    # do the calculation
-    print "computing the transition rate from nodes", A, "to nodes", B
-    reducer = GraphReduction(kmc_graph, A, B)
-    reducer.compute_rates()
-    
-    print "the transition rate computed by graph transformation is", rAB
     
     # now to check the values do a kinetic monte carlo run
     kmc = KineticMonteCarlo(kmc_graph_backup)
     
     niterlist = [10, 100, 1000, 10000]
+
+    print ""
+    print "computing the probability for a trajectory to start at", x, "and reach", B, "before reaching", A
+    PxB = reducer.compute_committor_probability(x)
+    print "the committor probability computed by graph transformation is", PxB
+    for niter in niterlist:
+        PxB_KMC = kmc.committor_probability(x, A, B, niter=niter)
+        print "the KMC committor probability averaged over %8d trajectories is %s. abs(PxB-PxB_KMC) = %s" % (niter, PxB_KMC, abs(PxB-PxB_KMC))
+
+
+    print ""
+    print "computing the transition rate from nodes", A, "to nodes", B
+    reducer.compute_rates()
+    rAB = reducer.get_rate_AB()
+    print "the transition rate computed by graph transformation is", rAB
     for niter in niterlist:
         rAB_KMC = kmc.mean_rate(A, B, niter=niter)
-        print "the KMC rate averaged over %8d iterations is %s. abs(rAB-rAB_KMC) = %s" % (niter, rAB_KMC, abs(rAB-rAB_KMC))
+        print "the KMC rate averaged over %8d trajectories is %s. abs(rAB-rAB_KMC) = %s" % (niter, rAB_KMC, abs(rAB-rAB_KMC))
 
 if __name__ == "__main__":
 #     readme_example()

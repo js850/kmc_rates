@@ -420,7 +420,6 @@ class GraphReduction(object):
         PxB = sum([data["P"] for (u, v, data) in 
                       self.graph.out_edges_iter([x], data=True) if v in self.B
                       ])
-        print PxA, PxB, PxA + PxB
         
         # These will not necessarily sum to 1 because of the self transition probabilities,
         sum_prob = PxA + PxB
