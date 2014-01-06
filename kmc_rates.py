@@ -129,7 +129,13 @@ class GraphReduction(object):
         If x is in B return the the probability
         that a trajectory starting at x gets to A before returning to x.
         """
-        return 1. - self._final_Pxx[x]
+        if len(self._final_Pxx) == 0:
+            raise RuntimeError("you must call compute_rates before calling this function")
+        try:
+            return 1. - self._final_Pxx[x]
+        except KeyError:
+            if x not in self.A and x not in self.B:
+                raise ValueError("x is not in A or in B.  Use compute_committor_probability() if x is an intermediate")
     
     def get_rate_AB(self):
         """Return the transition rate from A to B
