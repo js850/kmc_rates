@@ -158,22 +158,42 @@ class GraphReduction(object):
 #         self.rateAB, self.rateBA = self.get_final_rates()
 #         return self.rateAB, self.rateBA
 
+    def _reduce_all_iterator(self, nodes):
+        """for each node in nodes remove all other nodes in nodes and yield the remaining node
+        
+        The simplest way to do this runs in (worst case) time order len(nodes)**4.
+        This algorithm runs in (worst case) time order len(nodes)**3.
+        """
+        assert len(nodes) > 0
+        full_graph = self.graph.copy()
+        nodes = list(nodes)
+        nodes.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
+        while True:
+            if len(nodes) == 1:
+                yield nodes[0]
+                break
+            graph_copy = self.graph.copy()
+            
+            # remove all nodes except the one at index 0
+            u = nodes.pop(0)
+            self._remove_nodes(nodes)
+            yield u
+            
+            # restore the graph and remove the node at index 0
+            self.graph = graph_copy
+            self._remove_node(u)
+        
+        # restore the graph to it's original state
+        self.graph = full_graph
+
+
     def _phase_two_group(self, full_graph, group):
         """
         for each element a in the group, remove all other elements in
-        the group then record the node attributes of a for later analysis.
+        the group then record the node attributes for later analysis.
         
-        Note: This is a very inefficient way to do it.  If this becomes a 
-        bottleneck it should be rewritten.
         """
-        for a in group:
-            self.graph = full_graph.copy()
-            Acopy = set(group)
-            Acopy.remove(a)
-            while len(Acopy) > 0:
-                x = Acopy.pop()
-                self._remove_node(x)
-            
+        for a in self._reduce_all_iterator(group):
             if self.graph.out_degree(a) <= 1:
                 raise Exception("node %s is not connected" % (a))
             adata = self.graph.node[a]
@@ -436,6 +456,27 @@ class GraphReduction(object):
         self.graph = backup_graph
         
         return PxB
+    
+#     def compute_committor_probabilities(self, nodes):
+#         """
+#         compute the committor probability for each node in nodes
+#         
+#         this is the probability that the trajectory starting from node x reaches B before it reaches A
+#         """
+#         nodes = set(nodes)
+#         backup_graph = self.graph.copy()
+#         
+#         # first remove all nodes that are not in A, B or nodes
+#         to_be_removed = set(self.graph.nodes())
+#         to_be_removed.difference_update(nodes)
+#         to_be_removed.difference_update(self.A)
+#         to_be_removed.difference_update(self.B)
+#         self._remove_nodes(to_be_removed)
+#         
+#         PxB = dict()
+#         # now compute the 
+        
+        
         
         
         

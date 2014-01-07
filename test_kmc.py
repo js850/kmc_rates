@@ -74,5 +74,11 @@ class TestKMC_GraphReduction(unittest.TestCase):
         self.compare(A, B, weights=weights, x=4)
 
 
+    def test_big_group(self, nnodes=10, nedges=20):
+        A = range(8)
+        B = [9]
+        self.compare(A, B)
+
+
 if __name__ == "__main__":
     unittest.main()
