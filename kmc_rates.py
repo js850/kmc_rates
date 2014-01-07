@@ -121,7 +121,7 @@ class GraphReduction(object):
         norm = sum((self.weights[x] for x in group))
         return rate / norm
     
-    def get_committor_probability(self, x):
+    def get_committor_probabilityAB(self, x):
         """return the committor probability for node x
         
         x must be in A or in B. If x is in A return the the probability
@@ -164,7 +164,8 @@ class GraphReduction(object):
         The simplest way to do this runs in (worst case) time order len(nodes)**4.
         This algorithm runs in (worst case) time order len(nodes)**3.
         """
-        assert len(nodes) > 0
+        if len(nodes) == 0:
+            return
         if restore_graph:
             full_graph = self.graph.copy()
         nodes = list(nodes)
@@ -438,63 +439,39 @@ class GraphReduction(object):
         -----
         Since compute_rates() modifies the original graph this must be called before copute_rates()
         """
-        if not self.graph.has_node(x):
-            raise ValueError("The starting node is not in the graph."
-                             + "  This could be because you have already called compute_rates()."
-                             )
-        
-        # make a copy of the graph
-        backup_graph = self.graph.copy()
-        
-        # remove all nodes except x and those in A and B
-        nodes = set(self.graph.nodes())
-        nodes.remove(x)
-        nodes.difference_update(self.A)
-        nodes.difference_update(self.B)
-        self._remove_nodes(nodes)
-        
-        PxA = sum([data["P"] for (u, v, data) in 
-                      self.graph.out_edges_iter([x], data=True) if v in self.A
-                      ])
-        PxB = sum([data["P"] for (u, v, data) in 
-                      self.graph.out_edges_iter([x], data=True) if v in self.B
-                      ])
-        
-        # These will not necessarily sum to 1 because of the self transition probabilities,
-        sum_prob = PxA + PxB
-        PxA /= sum_prob
-        PxB /= sum_prob
-        
-        # restore the original graph
-        self.graph = backup_graph
-        
-        return PxB
+        PxB = self.compute_committor_probabilities([x])
+        return PxB[x]
     
     def compute_committor_probabilities(self, nodes):
         """
         compute the committor probability for each node in nodes
+
+        Notes
+        -----
+        this is the probability that the trajectory starting from node x reaches B before it reaches A.
         
-        this is the probability that the trajectory starting from node x reaches B before it reaches A
+        Since compute_rates() modifies the original graph this must be called before copute_rates()
         
         Returns
         -------
         a dictionary of the committor probabilies for each node in nodes
         """
         nodes = set(nodes)
+        not_in_graph = nodes.difference(self.graph.nodes())
+        if len(not_in_graph) > 0:
+            raise ValueError("At least on of the nodes is not in the graph."
+                             + "  This could be because you have already called compute_rates()."
+                             )
+
         backup_graph = self.graph.copy()
         
         # first remove all nodes that are not in A, B or nodes
-        to_be_removed = set(self.graph.nodes())
-        to_be_removed.difference_update(nodes)
-        to_be_removed.difference_update(self.A)
-        to_be_removed.difference_update(self.B)
+        to_be_removed = set(self.graph.nodes()) - nodes - self.A - self.B
         self._remove_nodes(to_be_removed)
         
         PxB = dict()
         # now compute the committor probabilities for the nodes that are not in A or in B
-        intermediates = set(nodes)
-        intermediates.difference_update(self.A)
-        intermediates.difference_update(self.B)
+        intermediates = set(nodes) - self.A - self.B
         for x in self._reduce_all_iterator(intermediates, restore_graph=False):
             PxB[x] = self._get_committor_probability(x)
             
@@ -507,12 +484,9 @@ class GraphReduction(object):
             self._remove_node(x)
         
         # Now all the nodes except those in A or in B are removed.
-        # We can now call run phase 2 which will compute the committor probabilities
-        # for all the remaining nodes
         assert len(set(self.graph.nodes()).difference(self.A).difference(self.B)) == 0
         final_nodes = nodes.difference(intermediates)
         if len(final_nodes) > 0:
-#             self._phase_two()
             for x in final_nodes:
                 PxB[x] = self._get_committor_probability(x)
         

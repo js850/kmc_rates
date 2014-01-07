@@ -52,8 +52,8 @@ class TestKMC_GraphReduction(unittest.TestCase):
         
         paB = kmc.committor_probability(A[0], [A[0]], B, niter=1000)
         print "the committor probability a->B", paB
-        print "graph reduction committor prob", reducer.get_committor_probability(A[0])
-        self.assertAlmostEqual(paB, reducer.get_committor_probability(A[0]), delta=.1)
+        print "graph reduction committor prob", reducer.get_committor_probabilityAB(A[0])
+        self.assertAlmostEqual(paB, reducer.get_committor_probabilityAB(A[0]), delta=.1)
 
     def test(self):
         A = [0]
