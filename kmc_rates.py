@@ -430,6 +430,13 @@ class GraphReduction(object):
                       ])
         
         # These will not necessarily sum to 1 because of the self transition probabilities,
+        sum_prob = PxA + PxB
+        if sum_prob == 0.:
+            print "x", x
+            print PxA, PxB
+            print self.graph.edges(x, data=True)
+            raise Exception
+            return 0.
         return PxB / (PxA + PxB)
 
     def compute_committor_probability(self, x):
@@ -485,7 +492,7 @@ class GraphReduction(object):
         
         # Now all the nodes except those in A or in B are removed.
         assert len(set(self.graph.nodes()).difference(self.A).difference(self.B)) == 0
-        final_nodes = nodes.difference(intermediates)
+        final_nodes = nodes.intersection(self.A.union(self.B))
         if len(final_nodes) > 0:
             for x in final_nodes:
                 PxB[x] = self._get_committor_probability(x)
