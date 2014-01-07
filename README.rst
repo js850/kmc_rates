@@ -14,7 +14,7 @@ from the python package index.
 The following few lines of code creates a random graph with 4 nodes and 
 then uses the graph renormalization method to compute the exact rates.
 
-.. code:: python
+.. #code:: python
 
     from kmc_rates import GraphReduction, kmcgraph_from_rates
     nnodes = 4
@@ -51,12 +51,12 @@ The method uses a graph renormalization method (renormalization in the sense of
 renormalization group theory) to compute exact Kinetic Monte Carlo rates and
 first passage probabilities from a reactant group A to a product group B.  Each
 node `u` has an attribute `tau_u` which is the waiting time at that node.  Each
-edge `u -> v` has an associated transition probability and `P_uv`.  An
+edge `u -> v` has an associated transition probability and :math:`P_{uv}`.  An
 important feature of this algorithm is that each node has a loop edge pointing
-back to itself and associated probability `P_uu` which gives the self-transitio
+back to itself and associated probability :math:`P_{uu}` which gives the self-transitio
 probability.  In the typical case the self-transition probabilities will all be
 zero initially, but will take non zero values after renormalization.  The
-transition probabilities always satisfy `sum_v P_uv = 1`.
+transition probabilities always satisfy :math:`\sum_v P_{uv} = 1`.
 
 graph transformation
 ++++++++++++++++++++
@@ -68,22 +68,26 @@ iteratively removed from the graph until the only two remaining nodes are a and
 probabilities, the properties of the neighbors of `x` are all updated.  For
 each neighbor, `u`, of `x`, the transition times are updated according to
 
-    tau_u -> tau_u + P_ux * tau_x / (1 - P_xx)
+.. math::
+
+    \tau_u -> \tau_u + P_{ux} * \tau_x / (1 - P_{xx})
 
 Similarly, for each pair, `u` and `v`, of neighbors of `x`
 the transition probabilities are updated according to 
 
-    P_uv -> P_uv + P_ux * P_xv / (1 - P_xx)
+.. math::
+
+    P_{uv} -> P_{uv} + P_{ux} * P_{xv} / (1 - P_{xx})
 
 Note that the self-transition probabilities `P_uu` are also updated according to the
 above equation.
 
 Once the graph is reduced to only the two nodes, `a`, and `b`, 
-the probability `P_ab` is interpreted as the commitor probability from `a` to `b`.  
+the probability :math:`P_{ab}` is interpreted as the commitor probability from `a` to `b`.  
 That is, the probability that a trajectory starting at `a` will end up at `b` before returning to `a`.  
 Similarly, the mean first passage time from `a` to `b` is simply
-`tau_a / P_ab`.  Note that because the probabilies sum to 1 the mean first passage time can also
-be written `tau_a / (1-P_aa)`.
+:math:`\tau_a / P_{ab}`.  Note that because the probabilies sum to 1 the mean first passage time can also
+be written :math:`\tau_a / (1-P_{aa})`.
 The transtion rate from `a` to `b`
 is simply the inverse of the mean first passage time.  The rates and
 probabilites from `b -> a` are read from the resuling graph in the same way.
@@ -100,11 +104,15 @@ except those in `A` or `B` are iteratively removed.
 The commitor probability from `a` to `B` is then the sum over the transition probabilities
 from `a` to `b` for each element `b` in `B`.  This can also be written as
 
-    1 - P_aa
+.. math::
+
+    1 - P_{aa}
 
 The mean first passage time from `a` to `B` is given by
 
-    T_aB = tau_a / (1 - P_aa)
+.. math::
+
+    T_{aB} = \tau_{a} / (1 - P_{aa})
 
 if A has more than one element
 ++++++++++++++++++++++++++++++
@@ -114,13 +122,15 @@ the transition rate from `A` to `B` must be computed as an average over
 the inverse mean first passage time for each
 element `a` in `A`. That is
 
-  k_AB = average( 1 / T_aB )
+.. math::
+
+  k_{AB} = average( 1 / T_{aB} )
 
 The computation is done in two phases.  In the first phase the intermediate
 nodes (those not in `A` or in `B`) are all removed from the graph.  In the
 second phase we first make a backup copy of the graph.  Then for each node `a`
 in `A` we remove from the graph all nodes in `A` (except `a`). This allows us
-to compute commitor probabilities and mean first passage times (`T_aB`) from
+to compute commitor probabilities and mean first passage times (:math:`T_{aB}`) from
 `a` to `B` as described in the preceding section.
 
 If the nodes `a` are not all equally likely to be occupied, then the above
