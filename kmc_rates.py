@@ -105,7 +105,7 @@ class GraphReduction(object):
         # The calculation is faster if we remove the nodes with the least edges first
         nodes.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
         for x in nodes:
-            self.remove_node(x)
+            self._remove_node(x)
 
     
     def _phase_one_remove_intermediates(self):
@@ -172,7 +172,7 @@ class GraphReduction(object):
             Acopy.remove(a)
             while len(Acopy) > 0:
                 x = Acopy.pop()
-                self.remove_node(x)
+                self._remove_node(x)
             
             if self.graph.out_degree(a) <= 1:
                 raise Exception("node %s is not connected" % (a))
@@ -277,7 +277,7 @@ class GraphReduction(object):
         if self.debug:
             print "  updating node data", u, "tau", tauold, "->", udata["tau"]
 
-    def remove_node(self, x):
+    def _remove_node(self, x):
         """
         remove node x from the graph and update the neighbors of x
         """
