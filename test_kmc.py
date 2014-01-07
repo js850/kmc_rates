@@ -19,7 +19,7 @@ class TestKMC(unittest.TestCase):
 class TestKMC_GraphReduction(unittest.TestCase):
     def compare(self, A, B, nnodes=10, nedges=20, weights=None, x=1):
         print ""
-        maker = _MakeRandomGraph(nnodes=nnodes, nedges=nedges, node_set=A+B)
+        maker = _MakeRandomGraph(nnodes=nnodes, nedges=nedges, node_set=A+B+[x])
         graph = maker.run()
         graph_backup = graph.copy()
         reducer = GraphReduction(graph, A, B, weights=weights)
@@ -78,6 +78,26 @@ class TestKMC_GraphReduction(unittest.TestCase):
         A = range(8)
         B = [9]
         self.compare(A, B)
+    
+    def test_committor_probabilities(self, nnodes=10, nedges=20):
+        A = [0,1,2,3]
+        B = [8,9]
+        xx = 5
+        maker = _MakeRandomGraph(nnodes=nnodes, nedges=nedges, node_set=A+B)
+        graph = maker.run()
+        graph_backup = graph.copy()
+        kmc = KineticMonteCarlo(graph_backup, debug=False)
+        reducer = GraphReduction(graph, A, B)
+        
+        nodes = set(A + B + [xx])
+        PxB = reducer.compute_committor_probabilities(nodes)
+        for x in nodes:
+            self.assertIn(x, PxB)
+            
+        for x in nodes:
+            PxB_kmc = kmc.committor_probability(x, A, B, niter=1000)
+            self.assertAlmostEqual(PxB[x], PxB_kmc, delta=.1)
+  
 
 
 if __name__ == "__main__":

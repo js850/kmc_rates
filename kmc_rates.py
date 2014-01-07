@@ -158,14 +158,15 @@ class GraphReduction(object):
 #         self.rateAB, self.rateBA = self.get_final_rates()
 #         return self.rateAB, self.rateBA
 
-    def _reduce_all_iterator(self, nodes):
+    def _reduce_all_iterator(self, nodes, restore_graph=True):
         """for each node in nodes remove all other nodes in nodes and yield the remaining node
         
         The simplest way to do this runs in (worst case) time order len(nodes)**4.
         This algorithm runs in (worst case) time order len(nodes)**3.
         """
         assert len(nodes) > 0
-        full_graph = self.graph.copy()
+        if restore_graph:
+            full_graph = self.graph.copy()
         nodes = list(nodes)
         nodes.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
         while True:
@@ -183,8 +184,9 @@ class GraphReduction(object):
             self.graph = graph_copy
             self._remove_node(u)
         
-        # restore the graph to it's original state
-        self.graph = full_graph
+        if restore_graph:
+            # restore the graph to it's original state
+            self.graph = full_graph
 
 
     def _phase_two_group(self, full_graph, group):
@@ -418,6 +420,17 @@ class GraphReduction(object):
                 self._print_node_data(u)
                 raise
 
+    def _get_committor_probability(self, x):
+        PxA = sum([data["P"] for (u, v, data) in 
+                      self.graph.out_edges_iter([x], data=True) if v in self.A
+                      ])
+        PxB = sum([data["P"] for (u, v, data) in 
+                      self.graph.out_edges_iter([x], data=True) if v in self.B
+                      ])
+        
+        # These will not necessarily sum to 1 because of the self transition probabilities,
+        return PxB / (PxA + PxB)
+
     def compute_committor_probability(self, x):
         """compute the probability that trajectory starting from x reaches B before it reaches A
         
@@ -457,25 +470,55 @@ class GraphReduction(object):
         
         return PxB
     
-#     def compute_committor_probabilities(self, nodes):
-#         """
-#         compute the committor probability for each node in nodes
-#         
-#         this is the probability that the trajectory starting from node x reaches B before it reaches A
-#         """
-#         nodes = set(nodes)
-#         backup_graph = self.graph.copy()
-#         
-#         # first remove all nodes that are not in A, B or nodes
-#         to_be_removed = set(self.graph.nodes())
-#         to_be_removed.difference_update(nodes)
-#         to_be_removed.difference_update(self.A)
-#         to_be_removed.difference_update(self.B)
-#         self._remove_nodes(to_be_removed)
-#         
-#         PxB = dict()
-#         # now compute the 
+    def compute_committor_probabilities(self, nodes):
+        """
+        compute the committor probability for each node in nodes
         
+        this is the probability that the trajectory starting from node x reaches B before it reaches A
+        
+        Returns
+        -------
+        a dictionary of the committor probabilies for each node in nodes
+        """
+        nodes = set(nodes)
+        backup_graph = self.graph.copy()
+        
+        # first remove all nodes that are not in A, B or nodes
+        to_be_removed = set(self.graph.nodes())
+        to_be_removed.difference_update(nodes)
+        to_be_removed.difference_update(self.A)
+        to_be_removed.difference_update(self.B)
+        self._remove_nodes(to_be_removed)
+        
+        PxB = dict()
+        # now compute the committor probabilities for the nodes that are not in A or in B
+        intermediates = set(nodes)
+        intermediates.difference_update(self.A)
+        intermediates.difference_update(self.B)
+        for x in self._reduce_all_iterator(intermediates, restore_graph=False):
+            PxB[x] = self._get_committor_probability(x)
+            
+        # At this point there is at most one node in the graph that is not in A or in B
+        intermediates = set(self.graph.nodes())
+        intermediates.difference_update(self.A)
+        intermediates.difference_update(self.B)
+        assert len(intermediates) <= 1
+        for x in intermediates:
+            self._remove_node(x)
+        
+        # Now all the nodes except those in A or in B are removed.
+        # We can now call run phase 2 which will compute the committor probabilities
+        # for all the remaining nodes
+        assert len(set(self.graph.nodes()).difference(self.A).difference(self.B)) == 0
+        final_nodes = nodes.difference(intermediates)
+        if len(final_nodes) > 0:
+#             self._phase_two()
+            for x in final_nodes:
+                PxB[x] = self._get_committor_probability(x)
+        
+        # restore the graph
+        self.graph = backup_graph
+        return PxB
         
         
         
