@@ -1,3 +1,11 @@
+"""
+----------------------------------------------------------------------------
+"THE BEER-WARE LICENSE" (Revision 42):
+<js850@cam.ac.uk> wrote this file. As long as you retain this notice you
+can do whatever you want with this stuff. If we meet some day, and you think
+this stuff is worth it, you can buy me a beer in return Jacob Stevenson
+----------------------------------------------------------------------------
+"""
 import numpy as np
 
 from kmc_rates import GraphReduction
