@@ -1,5 +1,8 @@
 
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
+from numpy import bench
 
 
 class CommittorLinalg(object):
@@ -170,12 +173,53 @@ class MfptLinalg(object):
         self.node_list = nodes
         self.node2i = node2i
         self.matrix =  matrix
-        print "matrix", self.matrix
-        print self.matrix
+#        print "matrix", self.matrix
+#        print self.matrix
     
     def compute_mfpt(self):
         self.make_matrix()
         times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
+        return times
+
+class MfptLinalgSparse(object):
+    def __init__(self, rates, B):
+        self.rates = rates
+        self.B = set(B)
+        self.nodes = set()
+        for u, v in self.rates.iterkeys():
+            self.nodes.add(u)
+            self.nodes.add(v)
+        
+    def make_matrix(self):
+        intermediates = self.nodes - self.B
+        
+        nodes = list(intermediates)
+        n = len(nodes)
+        matrix = scipy.sparse.dok_matrix((n,n))
+        node2i = dict([(node,i) for i, node in enumerate(nodes)])
+        
+        
+        for uv, rate in self.rates.iteritems():
+            u, v = uv
+#            v, u = uv
+
+            if u in intermediates:
+                iu = node2i[u]
+                matrix[iu,iu] -= rate
+
+                if v in intermediates:
+                    matrix[iu, node2i[v]] = rate
+        
+        
+        self.node_list = nodes
+        self.node2i = node2i
+#        print "matrix", matrix
+        self.matrix =  matrix.tocsr()
+    
+    def compute_mfpt(self):
+        if not hasattr(self, "matrix"):
+            self.make_matrix()
+        times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]))
         return times
 
               
@@ -184,15 +228,15 @@ def test():
 #    from test_graph_transformation import _three_state_graph, _MakeRandomGraph
     from kmc_rates import GraphReduction, kmcgraph_from_rates
     from kmc import KineticMonteCarlo
-    nnodes = 6
+    nnodes = 4
     rates = dict()
     for i in xrange(0,nnodes):
         for j in xrange(0,nnodes):
             if i != j:
                 rates[(i,j)] = np.random.rand()        
-#                rates[(i,j)] = float(i+1)
-##                rates[(i,j)] = 1.
-#    rates.pop((0,3))
+                rates[(i,j)] = float(i+1)
+#                rates[(i,j)] = 1.
+    rates.pop((0,3))
 #    rates.pop((3,0))
     print "rates", rates
     A=[0]
@@ -208,11 +252,14 @@ def test():
     
     c = CommittorLinalg(rates.copy(), A, B)
     cp = c.compute_committors()
+    print "linalg committors"
+    print cp
     
     
     from kmc_rates import GraphReduction
     red = GraphReduction(graph.copy(), A, B)
     cprob = red.compute_committor_probabilities(set(graph.nodes()) - set(A) - set(B))
+    print "NGT committors"
     print cprob
     
 #    print cp[0]
@@ -221,6 +268,10 @@ def test():
     mfpt_comp = MfptLinalg(rates, B)
     mfptimes = mfpt_comp.compute_mfpt()
     print "linalg rates", 1./ mfptimes
+    
+    mfpt_comps = MfptLinalgSparse(rates, B)
+    mfptimess = mfpt_comps.compute_mfpt()
+    print "sparse linalg rates", 1./ mfptimess
     
     red = GraphReduction(graph.copy(), A, B)
     red.compute_rates()
@@ -231,11 +282,97 @@ def test():
 #    print "NGT SS rate AB", red.get_SS_rate_AB()
     
     kmc = KineticMonteCarlo(graph.copy())
-    tkmc = kmc.mean_first_passage_time(A[0], B, niter=100000)
+    tkmc = kmc.mean_first_passage_time(A[0], B, niter=10000)
     print "kmc mfp time", tkmc
     print "kmc rate", 1./tkmc
-     
+
+def make_sparse_network(nnodes, nts):
+    rates = dict()
+    for u in xrange(1,nnodes):
+        v = np.random.randint(u)
+        rates[(u,v)] = np.random.rand()
+        rates[(v,u)] = np.random.rand()
+    
+    nodes = range(nnodes)
+    while len(rates) < 2*nts:
+        np.random.shuffle(nodes)
+        u,v = nodes[:2]
+        rates[(u,v)] = np.random.rand()
+        rates[(v,u)] = np.random.rand()
+    
+    return rates
+        
+
+def benchmarks():
+    from test_kmc import _MakeRandomGraph
+    from kmc_rates import kmcgraph_from_rates, GraphReduction
+    from matplotlib import pyplot as plt
+    plt.ion()
+    import sys
+    import time
+    nlist = 1.4**np.array(np.arange(15,30))
+    nlist = [int(n) for n in nlist]
+    print nlist
+    tsplist = []
+    plt.figure()
+    plt.show()
+    for n in nlist:
+#        maker = _MakeRandomGraph(n, n, node_set=set(range(n)))
+#        rates = maker.make_rates()    
+        rates = make_sparse_network(n, 2*n)
+#        graph = kmcgraph_from_rates(rates)
+        
+        
+        A = [0]
+        B = [1]
+        
+        t0 = time.clock()
+#        red = MfptLinalg(rates, B)
+#        mfpt = red.compute_mfpt()
+#        print 1./mfpt[0]
+        
+        red = MfptLinalgSparse(rates, B)
+        red.make_matrix()
+        t1 = time.clock()
+        mfpt = red.compute_mfpt()
+        t2 = time.clock()
+        print 1./mfpt[0]
+        tsplist.append(t2-t1)
+        
+#        red = GraphReduction(graph, A, B)
+#        red.compute_rates()
+#        print red.get_rate_AB()
+#        t3 = time.clock()
+        
+        
+        print n, len(rates) / 2, ": times", t1-t0, t2-t1 #, t3-t2
+        sys.stdout.flush()
+        
+        if len(tsplist) > 3:
+            plt.clf()
+            plt.loglog(nlist[:len(tsplist)], tsplist, '-.')
+            plt.draw()
+#            plt.show()
+
+        if True:
+            out = np.zeros([len(tsplist),2])
+            out[:,0] = nlist[:len(tsplist)]
+            out[:,1] = tsplist
+            np.savetxt("bench.dat", out)
+    
+    raw_input("press key")
+#    vals = tsplist.items()
+#    vals.sort(key=lambda v:v[0])
+#    nlist = [n for n,t in vals]
+#    times = [t for n,t in vals]
+#    print nlist
+#    print times
+        
+
+        
+        
 
 if __name__ == "__main__":
-    test()
+#    test()
+    benchmarks()
         

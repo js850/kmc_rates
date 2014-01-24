@@ -30,7 +30,7 @@ class _MakeRandomGraph(object):
 #         print len(self.rates) / 2, "edges"
         return u, v
 
-    def run(self):
+    def make_rates(self):
         nnodes = len(self.nodes)
         if self.node_set is not None:
             # add edges until u and v are connected    
@@ -40,6 +40,10 @@ class _MakeRandomGraph(object):
         while(len(self.rates) < nedges):
             self.add_random_edge()
         print "made random graph with", len(self.nodes), "nodes and", len(self.rates) / 2, "edges"
+        return self.rates
+    
+    def run(self):
+        self.make_rates()
         return kmcgraph_from_rates(self.rates)
     
     
