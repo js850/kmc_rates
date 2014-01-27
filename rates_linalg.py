@@ -3,6 +3,7 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 from numpy import bench
+from itertools import izip
 
 
 class CommittorLinalg(object):
@@ -198,6 +199,8 @@ class MfptLinalgSparse(object):
         matrix = scipy.sparse.dok_matrix((n,n))
         node2i = dict([(node,i) for i, node in enumerate(nodes)])
         
+        for iu in xrange(len(intermediates)):
+            matrix[iu,iu] = 0.
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
@@ -220,6 +223,9 @@ class MfptLinalgSparse(object):
         if not hasattr(self, "matrix"):
             self.make_matrix()
         times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]))
+        self.time_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
+        if np.any(times < 0):
+            print "error the mean first passage times are not all greater than zero"
         return times
 
               
@@ -310,7 +316,7 @@ def benchmarks():
     plt.ion()
     import sys
     import time
-    nlist = 1.4**np.array(np.arange(15,30))
+    nlist = 1.4**np.array(np.arange(15,40))
     nlist = [int(n) for n in nlist]
     print nlist
     tsplist = []
@@ -319,7 +325,7 @@ def benchmarks():
     for n in nlist:
 #        maker = _MakeRandomGraph(n, n, node_set=set(range(n)))
 #        rates = maker.make_rates()    
-        rates = make_sparse_network(n, 2*n)
+        rates = make_sparse_network(n, n*1.1)
 #        graph = kmcgraph_from_rates(rates)
         
         
@@ -369,10 +375,66 @@ def benchmarks():
 #    print times
         
 
+def benchmark_ngt():
+    from test_kmc import _MakeRandomGraph
+    from kmc_rates import kmcgraph_from_rates, GraphReduction
+    from matplotlib import pyplot as plt
+    plt.ion()
+    import sys
+    import time
+    nlist = 1.4**np.array(np.arange(8,40))
+    nlist = [int(n) for n in nlist]
+    print nlist
+    tsplist = []
+    plt.figure()
+    plt.show()
+    for n in nlist:
+#        maker = _MakeRandomGraph(n, n, node_set=set(range(n)))
+#        rates = maker.make_rates()    
+        rates = make_sparse_network(n, n*1.1)
+        graph = kmcgraph_from_rates(rates)
         
+        
+        A = [0]
+        B = [1]
+        
+        red = GraphReduction(graph, A, B)
+        t0 = time.clock()
+        red.compute_rates()
+        print red.get_rate_AB()
+        t1 = time.clock()
+        tsplist.append(t1-t0)
+        
+        
+        print n, len(rates) / 2, ": times", t1-t0
+        sys.stdout.flush()
+        
+        if len(tsplist) > 5:
+            if max(tsplist) > 0.1:
+                print tsplist
+                plt.clf()
+                plt.loglog(nlist[:len(tsplist)], tsplist, '-.')
+                plt.draw()
+
+        if True:
+            out = np.zeros([len(tsplist),2])
+            out[:,0] = nlist[:len(tsplist)]
+            out[:,1] = tsplist
+            np.savetxt("bench.ngt.dat", out)
+    
+    raw_input("press key")
+#    vals = tsplist.items()
+#    vals.sort(key=lambda v:v[0])
+#    nlist = [n for n,t in vals]
+#    times = [t for n,t in vals]
+#    print nlist
+#    print times
+        
+
         
 
 if __name__ == "__main__":
 #    test()
-    benchmarks()
+#    benchmarks()
+    benchmark_ngt()
         
