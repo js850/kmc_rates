@@ -44,6 +44,21 @@ class TestLinalgRandom(unittest.TestCase):
 #        A, B = [0, 1, 2], [3, 4, 5, 6]
 #        self.do_test(A, B)
 
+    def test_weakly_connected(self):
+        rates = {}
+        nnodes = 5
+        for n in range(nnodes-1):
+            rates[(n,n+1)] = 1.#np.random.rand()           
+            rates[(n+1,n)] = 1.#np.random.rand()
+        # add a disconnected edge
+#         rates[(nnodes, nnodes+1)] = 1.
+#         rates[(nnodes+1, nnodes)] = 1.
+        
+        for a in xrange(nnodes-1):
+            calc = MfptLinalgSparse(rates, [a])
+            times = calc.compute_mfpt()
+            self.assertGreater(min(times.itervalues()), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
