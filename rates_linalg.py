@@ -55,132 +55,6 @@ class CommittorLinalg(object):
 #        print "committors", committors
         return committors
     
-#    def compute_rate(self):
-#        rate = 0.
-#        for u in self.nodes:
-#            for v in self.B:
-#                if u != v:
-#                    if u in self.A:
-#                        com = 0.
-#                    else:
-#                        com = self.committors[self.node2i[u]]
-#                    rate += self.rates[(u,v)] * (1. - com)
-#        print "rate AB", rate
-#        return rate
-#
-#    def compute_eq_prob_pysal(self):
-#        from kmc_rates import kmcgraph_from_rates
-#        from pysal.spatial_dynamics.ergodic import steady_state, fmpt
-#        node_list = list(self.nodes)
-#        graph = kmcgraph_from_rates(self.rates)
-#        Tmat = np.zeros([len(self.nodes)]*2)
-#        self.node2i_full = dict([(node, i) for i, node in enumerate(node_list)])
-#        for u, v, data in graph.out_edges_iter(data=True):
-#            Tmat[self.node2i_full[u], self.node2i_full[v]] = data["P"]
-#        
-#        pi = steady_state(Tmat)
-#        self.eq_prob = dict()
-#        for i, node in enumerate(node_list):
-#            self.eq_prob[node] = np.real(pi[i])
-#        print "Tmat",
-#        print Tmat
-#        print "pysal fmpt", fmpt(Tmat)
-#        print "tau[", node_list[2],"]", graph.node[node_list[2]]["tau"]
-#        print "pysal eq prob", np.real(pi)
-#        
-#
-#    def compute_eq_prob(self):
-#        rin = dict([(u,0.) for u in self.nodes])
-#        rout = dict([(u,0.) for u in self.nodes])
-#        for uv, rate in self.rates.iteritems():
-#            u, v = uv
-#            rout[u] += rate
-#            rin[v] += rate
-#        
-#        self.eq_prob = dict()
-#        for u in self.nodes:
-#            self.eq_prob[u] = rin[u] / rout[u]
-#        
-#        norm = sum(self.eq_prob.itervalues())
-#        for u in self.nodes:
-#            self.eq_prob[u] /= norm
-#        
-#        #testing
-#        u, v = 2,3
-#        print "test detailed balance"
-#        print self.eq_prob[u] * self.rates[(u,v)], self.eq_prob[v] * self.rates[(v,u)]
-#        
-#            
-#    def compute_rate2(self):
-#        self.compute_eq_prob_pysal()
-#        weights = dict([(node, 1.) for node in self.nodes])
-#        weights = self.eq_prob
-#        
-#        rate = 0.
-#        norm = 0.
-#        for u in self.nodes:
-#            if u in self.B: continue
-#            for v in self.B:
-#                if u != v:
-#                    if (u,v) in self.rates:
-#                        if u in self.A:
-#                            com = 0.
-#                        else:
-#                            com = self.committors[self.node2i[u]]
-#                        print "r", u,v, weights[u], self.rates[(u,v)], com
-#                        rate += weights[u] * self.rates[(u,v)] * (1. - com)
-#                        if u in self.A:
-#                            norm += weights[u]
-##        rate /= norm
-#        print "rate AB", rate, norm, rate / norm
-#        return rate
-#
-#    def compute_rate3(self):
-#        self.A = set()
-#        self.make_matrix()
-#        times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
-#        return 1./times
-        
-#class MfptLinalg(object):
-#    def __init__(self, rates, B):
-#        self.rates = rates
-#        self.B = set(B)
-#        self.nodes = set()
-#        for u, v in self.rates.iterkeys():
-#            self.nodes.add(u)
-#            self.nodes.add(v)
-#        
-#    def make_matrix(self):
-#        intermediates = self.nodes - self.B
-#        
-#        nodes = list(intermediates)
-#        n = len(nodes)
-#        matrix = np.zeros([n,n])
-#        node2i = dict([(node,i) for i, node in enumerate(nodes)])
-#        
-#        
-#        for uv, rate in self.rates.iteritems():
-#            u, v = uv
-##            v, u = uv
-#
-#            if u in intermediates:
-#                iu = node2i[u]
-#                matrix[iu,iu] -= rate
-#
-#                if v in intermediates:
-#                    matrix[iu, node2i[v]] = rate
-#        
-#        
-#        self.node_list = nodes
-#        self.node2i = node2i
-#        self.matrix =  matrix
-##        print "matrix", self.matrix
-##        print self.matrix
-#    
-#    def compute_mfpt(self):
-#        self.make_matrix()
-#        times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
-#        return times
 
 class MfptLinalgSparse(object):
     def __init__(self, rates, B):
@@ -205,27 +79,26 @@ class MfptLinalgSparse(object):
             self.rates = dict((uv, rate) for uv, rate in self.rates.iteritems()
                               if uv[0] in connected_nodes
                               )
-            
         
-        # now remove the B nodes from the graph and see if it is split into multiple parts
-        graph = nx.Graph()
-        graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
-                                    self.rates.iterkeys()))
-        graph.add_nodes_from(self.nodes)
-        cc = nx.connected_components(graph)
-        self.independent_sets = [set(c) for c in cc]
-        print len(self.independent_sets), "independent sets"
-        print [len(c) for c in self.independent_sets]
-        
-        # compute the sums of the rates out of each node.
-        # These will be the negative of the diagonal of the rate matrix        
-        self.sum_out_rates = dict()
-        for uv, rate in self.rates.iteritems():
-            u = uv[0]
-            try:
-                self.sum_out_rates[u] += rate
-            except KeyError:
-                self.sum_out_rates[u] = rate
+#        # now remove the B nodes from the graph and see if it is split into multiple parts
+#        graph = nx.Graph()
+#        graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
+#                                    self.rates.iterkeys()))
+#        graph.add_nodes_from(self.nodes)
+#        cc = nx.connected_components(graph)
+#        self.independent_sets = [set(c) for c in cc]
+#        print len(self.independent_sets), "independent sets"
+#        print [len(c) for c in self.independent_sets]
+#        
+#        # compute the sums of the rates out of each node.
+#        # These will be the negative of the diagonal of the rate matrix        
+#        self.sum_out_rates = dict()
+#        for uv, rate in self.rates.iteritems():
+#            u = uv[0]
+#            try:
+#                self.sum_out_rates[u] += rate
+#            except KeyError:
+#                self.sum_out_rates[u] = rate
         
         
     def make_matrix(self, intermediates):
@@ -242,7 +115,10 @@ class MfptLinalgSparse(object):
         for uv, rate in self.rates.iteritems():
             u, v = uv
             if u in intermediates and v in intermediates:
-                matrix[node2i[u], node2i[v]] = rate
+                ui = node2i[u]
+                vi = node2i[v]
+                assert ui != vi
+                matrix[ui,vi] = rate
         
         
         self.node_list = node_list
