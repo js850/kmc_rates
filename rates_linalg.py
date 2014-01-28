@@ -186,32 +186,64 @@ class MfptLinalgSparse(object):
     def __init__(self, rates, B):
         self.rates = rates
         self.B = set(B)
-        self.nodes = set()
-        for u, v in self.rates.iterkeys():
-            self.nodes.add(u)
-            self.nodes.add(v)
+        self.initialize()
         
-    def make_matrix(self):
-        intermediates = self.nodes - self.B
+    def initialize(self):
+        import networkx as nx
+        graph = nx.Graph()
+        graph.add_edges_from(self.rates.iterkeys())
+        
+        # remove nodes not connected to B
+        # TODO: this only works if B is fully connected
+        connected_nodes = nx.node_connected_component(graph, iter(self.B).next())
+        connected_nodes = set(connected_nodes)
+        all_nodes = set(graph.nodes())
+        self.nodes = set(connected_nodes)
+        if len(connected_nodes) != len(all_nodes):
+            print "removing", len(all_nodes) - len(connected_nodes), "nodes that are not connected to B"
+        
+            self.rates = dict((uv, rate) for uv, rate in self.rates.iteritems()
+                              if uv[0] in connected_nodes
+                              )
+            
+        
+        # now remove the B nodes from the graph and see if it is split into multiple parts
+        graph = nx.Graph()
+        graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
+                                    self.rates.iterkeys()))
+        graph.add_nodes_from(self.nodes)
+        cc = nx.connected_components(graph)
+        self.independent_sets = [set(c) for c in cc]
+        print len(self.independent_sets), "independent sets"
+        print [len(c) for c in self.independent_sets]
+        
+        # compute the sums of the rates out of each node.
+        # These will be the negative of the diagonal of the rate matrix        
+        self.sum_out_rates = dict()
+        for uv, rate in self.rates.iteritems():
+            u = uv[0]
+            try:
+                self.sum_out_rates[u] += rate
+            except KeyError:
+                self.sum_out_rates[u] = rate
+        
+        
+    def make_matrix(self, intermediates):
+        assert not self.B.intersection(intermediates)
         
         nodes = list(intermediates)
         n = len(nodes)
         matrix = scipy.sparse.dok_matrix((n,n))
         node2i = dict([(node,i) for i, node in enumerate(nodes)])
         
-        for iu in xrange(len(intermediates)):
-            matrix[iu,iu] = 0.
+        for iu, u in enumerate(nodes):
+            matrix[iu,iu] = -self.sum_out_rates[u]
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
-#            v, u = uv
-
-            if u in intermediates:
+            if u in intermediates and v in intermediates:
                 iu = node2i[u]
-                matrix[iu,iu] -= rate
-
-                if v in intermediates:
-                    matrix[iu, node2i[v]] = rate
+                matrix[iu, node2i[v]] = rate
         
         
         self.node_list = nodes
@@ -219,9 +251,12 @@ class MfptLinalgSparse(object):
 #        print "matrix", matrix
         self.matrix =  matrix.tocsr()
     
+    def _compute_mfpt(self, nodes):
+        self.make_matrix(nodes)
+    
     def compute_mfpt(self):
         if not hasattr(self, "matrix"):
-            self.make_matrix()
+            self.make_matrix(self.nodes - self.B)
         times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]))
         self.time_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
         if np.any(times < 0):
