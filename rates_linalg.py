@@ -141,46 +141,46 @@ class CommittorLinalg(object):
 #        times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
 #        return 1./times
         
-class MfptLinalg(object):
-    def __init__(self, rates, B):
-        self.rates = rates
-        self.B = set(B)
-        self.nodes = set()
-        for u, v in self.rates.iterkeys():
-            self.nodes.add(u)
-            self.nodes.add(v)
-        
-    def make_matrix(self):
-        intermediates = self.nodes - self.B
-        
-        nodes = list(intermediates)
-        n = len(nodes)
-        matrix = np.zeros([n,n])
-        node2i = dict([(node,i) for i, node in enumerate(nodes)])
-        
-        
-        for uv, rate in self.rates.iteritems():
-            u, v = uv
-#            v, u = uv
-
-            if u in intermediates:
-                iu = node2i[u]
-                matrix[iu,iu] -= rate
-
-                if v in intermediates:
-                    matrix[iu, node2i[v]] = rate
-        
-        
-        self.node_list = nodes
-        self.node2i = node2i
-        self.matrix =  matrix
-#        print "matrix", self.matrix
-#        print self.matrix
-    
-    def compute_mfpt(self):
-        self.make_matrix()
-        times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
-        return times
+#class MfptLinalg(object):
+#    def __init__(self, rates, B):
+#        self.rates = rates
+#        self.B = set(B)
+#        self.nodes = set()
+#        for u, v in self.rates.iterkeys():
+#            self.nodes.add(u)
+#            self.nodes.add(v)
+#        
+#    def make_matrix(self):
+#        intermediates = self.nodes - self.B
+#        
+#        nodes = list(intermediates)
+#        n = len(nodes)
+#        matrix = np.zeros([n,n])
+#        node2i = dict([(node,i) for i, node in enumerate(nodes)])
+#        
+#        
+#        for uv, rate in self.rates.iteritems():
+#            u, v = uv
+##            v, u = uv
+#
+#            if u in intermediates:
+#                iu = node2i[u]
+#                matrix[iu,iu] -= rate
+#
+#                if v in intermediates:
+#                    matrix[iu, node2i[v]] = rate
+#        
+#        
+#        self.node_list = nodes
+#        self.node2i = node2i
+#        self.matrix =  matrix
+##        print "matrix", self.matrix
+##        print self.matrix
+#    
+#    def compute_mfpt(self):
+#        self.make_matrix()
+#        times = np.linalg.solve(self.matrix, -np.ones(self.matrix.shape[0]))
+#        return times
 
 class MfptLinalgSparse(object):
     def __init__(self, rates, B):
@@ -231,22 +231,21 @@ class MfptLinalgSparse(object):
     def make_matrix(self, intermediates):
         assert not self.B.intersection(intermediates)
         
-        nodes = list(intermediates)
-        n = len(nodes)
+        node_list = list(intermediates)
+        n = len(node_list)
         matrix = scipy.sparse.dok_matrix((n,n))
-        node2i = dict([(node,i) for i, node in enumerate(nodes)])
+        node2i = dict([(node,i) for i, node in enumerate(node_list)])
         
-        for iu, u in enumerate(nodes):
+        for iu, u in enumerate(node_list):
             matrix[iu,iu] = -self.sum_out_rates[u]
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
             if u in intermediates and v in intermediates:
-                iu = node2i[u]
-                matrix[iu, node2i[v]] = rate
+                matrix[node2i[u], node2i[v]] = rate
         
         
-        self.node_list = nodes
+        self.node_list = node_list
         self.node2i = node2i
 #        print "matrix", matrix
         self.matrix =  matrix.tocsr()

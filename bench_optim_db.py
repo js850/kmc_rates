@@ -21,6 +21,7 @@ db = Database("db.40000.sqlite")
 
 m1 = db.getMinimum(18)
 m2 = db.getMinimum(1)
+print "m1, m2", m1._id, m2._id
 A = [m1]
 B = [m2]
 print "energy of mA", m1.energy
@@ -46,6 +47,24 @@ pele_rates = RateCalculation(db.transition_states(), A, B, T=.592, use_fvib=True
 pele_rates._make_kmc_graph()
 
 rates = pele_rates.rate_constants
+
+if False:
+    print "making all rates 1"
+    for uv in rates.iterkeys():
+        rates[uv] = 1.
+        u, v = uv
+#        assert u != v
+        assert (v,u) in rates
+
+if True:
+    print "remove self transition states"
+    nodes = set([u for u,v in rates.iterkeys() if u==v])
+    for u in nodes:
+        rates.pop((u,u))
+    
+        
+
+
 print "max rate constant", max(rates.itervalues())
 print "min rate constant", min(rates.itervalues())
 
@@ -70,10 +89,34 @@ print "rates"
 print 1./times[A[0]] * np.exp(pele_rates.max_log_rate)
 print "sparse linalg finished in", t1-t0, "seconds"
 
+if True:
+    print "saving the graph structure"
+    nodes = list(lin.nodes)
+    node2i = dict([(node, i) for i, node in enumerate(nodes)])
+    node2i = dict([(node, node._id) for node in nodes])
+    with open("error.graph.id", "w") as fout:
+        fout.write("# %d\n" % (node2i[iter(B).next()]))
+        for uv in lin.rates.iterkeys():
+            i = node2i[uv[0]]
+            j = node2i[uv[1]]
+            if i < j:
+                fout.write("%d %d\n" % (i,j))
+
 print "max time", mfpt.max()
 print "min time", mfpt.min()
 
 if True:
+    print "\nrecomputing rates"
+    rates2 = dict([((uv[0]._id, uv[1]._id),rate) for uv, rate in lin.rates.iteritems()])
+    lin2 = MfptLinalgSparse(rates2, [B[0]._id])
+    mfpt = lin2.compute_mfpt()
+    print "new max time", mfpt.max()
+    print "new min time", mfpt.min()
+    import pickle
+    pickle.dump(rates2, open("error.graph.id2", "w"))
+    
+
+if False:
     print "\ncomputing for reduced matrix"
     lin.make_matrix(lin.independent_sets[0] - lin.B)
     mfpt = lin.compute_mfpt()
@@ -88,7 +131,7 @@ if False:
     import numpy as np
     np.savetxt("bench.eigs.txt", sorted(np.real(w)))
 
-if True:
+if False:
     print "computing the LU decomposition"
     lu = inverse = scipy.sparse.linalg.splu(lin.matrix)
     newtimes = lu.solve(-np.ones(lin.matrix.shape[0]))
@@ -98,7 +141,7 @@ if True:
     print "max min LU times"
     print newtimes.max(), newtimes.min()
 
-if True:
+if False:
     print "smallest magnitude eigenvalue"
     u, v = scipy.sparse.linalg.eigs(lin.matrix, which="SM", k=1, tol=1e-6)
     print u
