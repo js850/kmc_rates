@@ -57,10 +57,16 @@ class CommittorLinalg(object):
     
 
 class MfptLinalgSparse(object):
-    def __init__(self, rates, B):
+    def __init__(self, rates, B, check_graph=True):
         self.rates = rates
         self.B = set(B)
-        self.initialize()
+        if check_graph:
+            self.initialize()
+        
+        self.nodes = set()
+        for u, v in self.rates.iterkeys():
+            self.nodes.add(u)
+            self.nodes.add(v)
         
     def initialize(self):
         import networkx as nx
@@ -72,7 +78,6 @@ class MfptLinalgSparse(object):
         connected_nodes = nx.node_connected_component(graph, iter(self.B).next())
         connected_nodes = set(connected_nodes)
         all_nodes = set(graph.nodes())
-        self.nodes = set(connected_nodes)
         if len(connected_nodes) != len(all_nodes):
             print "removing", len(all_nodes) - len(connected_nodes), "nodes that are not connected to B"
         
@@ -109,16 +114,20 @@ class MfptLinalgSparse(object):
         matrix = scipy.sparse.dok_matrix((n,n))
         node2i = dict([(node,i) for i, node in enumerate(node_list)])
         
-        for iu, u in enumerate(node_list):
-            matrix[iu,iu] = -self.sum_out_rates[u]
+        for iu in xrange(len(node_list)):
+            matrix[iu,iu] = 0.
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
-            if u in intermediates and v in intermediates:
+            if u in intermediates: 
                 ui = node2i[u]
-                vi = node2i[v]
-                assert ui != vi
-                matrix[ui,vi] = rate
+                
+                matrix[ui,ui] -= rate
+                
+                if v in intermediates:
+                    vi = node2i[v]
+                    assert ui != vi
+                    matrix[ui,vi] = rate
         
         
         self.node_list = node_list
@@ -135,8 +144,8 @@ class MfptLinalgSparse(object):
         times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]))
         self.time_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
         if np.any(times < 0):
-            print "error the mean first passage times are not all greater than zero"
-        return times
+            raise("error the mean first passage times are not all greater than zero")
+        return self.time_dict
 
               
 

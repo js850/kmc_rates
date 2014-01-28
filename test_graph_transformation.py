@@ -49,16 +49,17 @@ class _MakeRandomGraph(object):
     
 
 
-
-def _three_state_graph():
+def _three_state_rates():
     tmatrix = [ [0., 1., 1.,], [1., 0., 1.,], [1., 1., 0.] ]
     rates = dict()
     for i in range(3):
         for j in range(3):
             if i != j:
                 rates[(i,j)] = tmatrix[i][j]
+    return rates
 
-    return kmcgraph_from_rates(rates)
+def _three_state_graph():
+    return kmcgraph_from_rates(_three_state_rates())
 
 class TestGraphReduction3(unittest.TestCase):
     def setUp(self):

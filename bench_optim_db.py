@@ -56,7 +56,7 @@ if False:
 #        assert u != v
         assert (v,u) in rates
 
-if True:
+if False:
     print "remove self transition states"
     nodes = set([u for u,v in rates.iterkeys() if u==v])
     for u in nodes:
@@ -88,8 +88,10 @@ print times[A[0]] / np.exp(pele_rates.max_log_rate)
 print "rates"
 print 1./times[A[0]] * np.exp(pele_rates.max_log_rate)
 print "sparse linalg finished in", t1-t0, "seconds"
+print "max time", max(mfpt.itervalues())
+print "min time", min(mfpt.itervalues())
 
-if True:
+if False:
     print "saving the graph structure"
     nodes = list(lin.nodes)
     node2i = dict([(node, i) for i, node in enumerate(nodes)])
@@ -102,10 +104,8 @@ if True:
             if i < j:
                 fout.write("%d %d\n" % (i,j))
 
-print "max time", mfpt.max()
-print "min time", mfpt.min()
 
-if True:
+if False:
     print "\nrecomputing rates"
     rates2 = dict([((uv[0]._id, uv[1]._id),rate) for uv, rate in lin.rates.iteritems()])
     lin2 = MfptLinalgSparse(rates2, [B[0]._id])
