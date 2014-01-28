@@ -4,6 +4,7 @@ import numpy as np
 from kmc import KineticMonteCarlo
 from kmc_rates import GraphReduction
 from test_graph_transformation import _MakeRandomGraph, _three_state_graph
+from rates_linalg import TwoStateRates
 
 
 class TestKMC(unittest.TestCase):
@@ -35,14 +36,22 @@ class TestKMC_GraphReduction(unittest.TestCase):
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
         rBA = reducer.get_rate_BA()
+        
+        # compute rate via linalg
+        lin = TwoStateRates(maker.rates, A, B, weights=weights)
+        lin.compute_rates()
+        rAB_LA = lin.get_rate_AB()
          
         rAB_KMC = kmc.mean_rate(A, B, niter=1000, weights=weights)
         
         print "NGT rate A->B", rAB
         print "KMC rate A->B", rAB_KMC
         print "normalized difference", (rAB - rAB_KMC)/rAB 
+        print "normalized difference to linalg", (rAB - rAB_LA)/rAB 
         self.assertLess(abs(rAB - rAB_KMC)/rAB, .1)
-         
+        self.assertLess(abs(rAB - rAB_LA)/rAB, .00001)
+
+
         rBA_KMC = kmc.mean_rate(B, A, niter=1000, weights=weights)
          
         print "NGT rate B->A", rBA

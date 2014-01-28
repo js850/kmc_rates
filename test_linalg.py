@@ -3,7 +3,6 @@ from test_graph_transformation import _three_state_rates, _MakeRandomGraph
 
 from rates_linalg import CommittorLinalg, MfptLinalgSparse
 
-
 class TestLinalg3(unittest.TestCase):
     def setUp(self):
         self.rates = _three_state_rates()
@@ -36,13 +35,13 @@ class TestLinalgRandom(unittest.TestCase):
         A, B = [0], [1]
         self.do_test(A, B)
  
-#    def test_setA(self):
-#        A, B = [0, 1, 2], [3]
-#        self.do_test(A, B)
-#  
-#    def test_setAB(self):
-#        A, B = [0, 1, 2], [3, 4, 5, 6]
-#        self.do_test(A, B)
+    def test_setA(self):
+        A, B = [0, 1, 2], [3]
+        self.do_test(A, B)
+  
+    def test_setAB(self):
+        A, B = [0, 1, 2], [3, 4, 5, 6]
+        self.do_test(A, B)
 
     def test_weakly_connected(self):
         rates = {}

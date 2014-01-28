@@ -147,7 +147,33 @@ class MfptLinalgSparse(object):
             raise("error the mean first passage times are not all greater than zero")
         return self.time_dict
 
-              
+class TwoStateRates(object):
+    def __init__(self, rate_constants, A, B, weights=None):
+        self.rate_constants = rate_constants
+        self.A = A
+        self.B = B
+        self.weights = weights
+        
+        self.mfpt_computer = MfptLinalgSparse(self.rate_constants, self.B)
+
+    def get_rate_AB(self):
+        if self.weights is None:
+            self.weights = dict([(a, 1.) for a in self.A])
+        
+        rate = sum((self.weights[a] / self.mfptimes[a] for a in self.A
+                    ))
+        norm = sum((self.weights[a] for a in self.A))
+        
+        return rate / norm
+            
+    
+    def compute_rates(self):
+        self.mfptimes = self.mfpt_computer.compute_mfpt()
+    
+#    def compute_committors(self):
+#        self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
+        
+             
 
 def test():
 #    from test_graph_transformation import _three_state_graph, _MakeRandomGraph
