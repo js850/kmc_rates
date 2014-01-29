@@ -6,57 +6,8 @@ from numpy import bench
 from itertools import izip
 
 
-#class CommittorLinalgDense(object):
-#    def __init__(self, rates, A, B, debug=False, weights=None):
-#        self.rates = rates
-#        self.A = set(A)
-#        self.B = set(B)
-#        self.nodes = set()
-#        for u, v in self.rates.iterkeys():
-#            self.nodes.add(u)
-#            self.nodes.add(v)
-#        self.intermediates = self.nodes - self.A - self.B
-#        
-#    def make_matrix(self):
-#        intermediates = self.nodes - self.A - self.B
-#        
-#        nodes = list(intermediates)
-#        n = len(nodes)
-#        matrix = np.zeros([n,n])
-#        right_side = np.zeros(n)
-#        node2i = dict([(node,i) for i, node in enumerate(nodes)])
-#        
-#        
-#        for uv, rate in self.rates.iteritems():
-#            u, v = uv
-##            v, u = uv
-#
-#            if u in intermediates:
-#                iu = node2i[u]
-#                matrix[iu,iu] -= rate
-#
-#                if v in intermediates:
-#                    matrix[iu, node2i[v]] = rate
-#        
-#                if v in self.B:
-#                    right_side[iu] -= rate
-#        
-#        self.node_list = nodes
-#        self.node2i = node2i
-#        self.matrix =  matrix
-#        print "matrix", self.matrix
-#        self.right_side = right_side
-#        print self.matrix
-#        
-#    def compute_committors(self):
-#        self.make_matrix()
-#        committors = np.linalg.solve(self.matrix, self.right_side)
-#        self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
-##        self.committors = committors
-##        print "committors", committors
-#        return self.committor_dict
-
 class CommittorLinalg(object):
+    """compute committor probabilites using sparse linear algebra"""
     def __init__(self, rates, A, B, debug=False, weights=None):
         self.rates = rates
         self.A = set(A)
@@ -105,6 +56,7 @@ class CommittorLinalg(object):
     
 
 class MfptLinalgSparse(object):
+    """compute mean first passage times using sparse linear algebra"""
     def __init__(self, rates, B, check_graph=True):
         self.rates = rates
         self.B = set(B)
@@ -132,27 +84,6 @@ class MfptLinalgSparse(object):
             self.rates = dict((uv, rate) for uv, rate in self.rates.iteritems()
                               if uv[0] in connected_nodes
                               )
-        
-#        # now remove the B nodes from the graph and see if it is split into multiple parts
-#        graph = nx.Graph()
-#        graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
-#                                    self.rates.iterkeys()))
-#        graph.add_nodes_from(self.nodes)
-#        cc = nx.connected_components(graph)
-#        self.independent_sets = [set(c) for c in cc]
-#        print len(self.independent_sets), "independent sets"
-#        print [len(c) for c in self.independent_sets]
-#        
-#        # compute the sums of the rates out of each node.
-#        # These will be the negative of the diagonal of the rate matrix        
-#        self.sum_out_rates = dict()
-#        for uv, rate in self.rates.iteritems():
-#            u = uv[0]
-#            try:
-#                self.sum_out_rates[u] += rate
-#            except KeyError:
-#                self.sum_out_rates[u] = rate
-        
         
     def make_matrix(self, intermediates):
         assert not self.B.intersection(intermediates)
@@ -183,9 +114,6 @@ class MfptLinalgSparse(object):
 #        print "matrix", matrix
         self.matrix =  matrix.tocsr()
     
-    def _compute_mfpt(self, nodes):
-        self.make_matrix(nodes)
-    
     def compute_mfpt(self):
         if not hasattr(self, "matrix"):
             self.make_matrix(self.nodes - self.B)
@@ -195,7 +123,9 @@ class MfptLinalgSparse(object):
             raise("error the mean first passage times are not all greater than zero")
         return self.time_dict
 
+
 class TwoStateRates(object):
+    """compute committors and several different rates between two groups"""
     def __init__(self, rate_constants, A, B, weights=None):
         self.rate_constants = rate_constants
         self.A = A
@@ -253,9 +183,11 @@ class TwoStateRates(object):
             return self.committor_dict[x]
     
     def compute_rates(self):
+        """compute the mean first passage times."""
         self.mfptimes = self.mfpt_computer.compute_mfpt()
     
     def compute_committors(self):
+        """compute the committors""" 
         self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
         self.committor_dict = self.committor_computer.compute_committors()
         
