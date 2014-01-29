@@ -36,7 +36,7 @@ class TestKMC_GraphReduction(unittest.TestCase):
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
         rBA = reducer.get_rate_BA()
-        rAB_SS = reducer.get_SS_rate_AB()
+        rAB_SS = reducer.get_rate_AB_SS()
         
         # compute rate via linalg
         lin = TwoStateRates(maker.rates, A, B, weights=weights)

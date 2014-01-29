@@ -48,7 +48,11 @@ class CommittorLinalg(object):
         
     def compute_committors(self):
         self.make_matrix()
-        committors = scipy.sparse.linalg.spsolve(self.matrix, self.right_side)
+        if self.right_side.size == 1:
+            # some versions of scipy can't handle matrices of size 1
+            committors = np.array([self.right_side[0] / self.matrix[0,0]])
+        else:
+            committors = scipy.sparse.linalg.spsolve(self.matrix, self.right_side)
         self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
 #        self.committors = committors
 #        print "committors", committors

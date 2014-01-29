@@ -5,6 +5,7 @@ import example_random_graph
 import example_committor_probabilities
 from test_graph_transformation import *
 from test_kmc import *
+from test_linalg import *
 
 class TestExamples(unittest.TestCase):
     def test1(self):

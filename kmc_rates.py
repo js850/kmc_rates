@@ -169,7 +169,7 @@ class GraphReduction(object):
 #         self.rateAB, self.rateBA = self.get_final_rates()
 #         return self.rateAB, self.rateBA
 
-    def get_SS_rate_AB(self):
+    def get_rate_AB_SS(self):
         rate = 0.
         for a in self.A:
             PaB = sum((data["P"] for x, b, data in self.graph.out_edges_iter(a, data=True)
