@@ -208,6 +208,10 @@ class TwoStateRates(object):
         self.rate_constants = self.mfpt_computer.rates
 
     def get_rate_AB(self):
+        """return the rate from A to B
+        
+        the rate is the inverse mean first passage time averaged over the nodes in A
+        """
         rate = sum((self.weights[a] / self.mfptimes[a] for a in self.A))
         norm = sum((self.weights[a] for a in self.A))
         
@@ -215,7 +219,7 @@ class TwoStateRates(object):
     
     def get_rate_AB_SS(self):
         """
-        sum ( CaB weights[b] / tau_b
+        return the steady state rate from A to B
         """
         # for each node a in A, compute the probability that it ends up in
         # B before reaching another node in A.
@@ -239,6 +243,14 @@ class TwoStateRates(object):
         
         return rate / norm
 
+    def get_committor(self, x):
+        """return the probability that a trajectory starting from x reaches B before A"""
+        if x in self.A:
+            return 0.
+        elif x in self.B:
+            return 1.
+        else:
+            return self.committor_dict[x]
     
     def compute_rates(self):
         self.mfptimes = self.mfpt_computer.compute_mfpt()

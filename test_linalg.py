@@ -18,6 +18,7 @@ class TestLinalg3(unittest.TestCase):
         reducer.compute_committors()
         rAB_ss = reducer.get_rate_AB_SS()
         print "kSS", rAB_ss
+        self.assertAlmostEqual(rAB_ss, 1.5, 7)
         
     def test01(self):
         self._test_rate(0,1)

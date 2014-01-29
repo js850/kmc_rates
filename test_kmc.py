@@ -36,11 +36,19 @@ class TestKMC_GraphReduction(unittest.TestCase):
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
         rBA = reducer.get_rate_BA()
+        rAB_SS = reducer.get_SS_rate_AB()
         
         # compute rate via linalg
         lin = TwoStateRates(maker.rates, A, B, weights=weights)
         lin.compute_rates()
         rAB_LA = lin.get_rate_AB()
+        lin.compute_committors()
+        rAB_SS_LA = lin.get_rate_AB_SS()
+        self.assertAlmostEqual(rAB_SS, rAB_SS_LA, 5)
+        PxB_LA = lin.get_committor(x)
+        if x not in A and x not in B:
+            self.assertAlmostEqual(PxB, PxB_LA, 5)
+        
          
         rAB_KMC = kmc.mean_rate(A, B, niter=1000, weights=weights)
         
