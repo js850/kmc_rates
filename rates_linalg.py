@@ -6,6 +6,56 @@ from numpy import bench
 from itertools import izip
 
 
+#class CommittorLinalgDense(object):
+#    def __init__(self, rates, A, B, debug=False, weights=None):
+#        self.rates = rates
+#        self.A = set(A)
+#        self.B = set(B)
+#        self.nodes = set()
+#        for u, v in self.rates.iterkeys():
+#            self.nodes.add(u)
+#            self.nodes.add(v)
+#        self.intermediates = self.nodes - self.A - self.B
+#        
+#    def make_matrix(self):
+#        intermediates = self.nodes - self.A - self.B
+#        
+#        nodes = list(intermediates)
+#        n = len(nodes)
+#        matrix = np.zeros([n,n])
+#        right_side = np.zeros(n)
+#        node2i = dict([(node,i) for i, node in enumerate(nodes)])
+#        
+#        
+#        for uv, rate in self.rates.iteritems():
+#            u, v = uv
+##            v, u = uv
+#
+#            if u in intermediates:
+#                iu = node2i[u]
+#                matrix[iu,iu] -= rate
+#
+#                if v in intermediates:
+#                    matrix[iu, node2i[v]] = rate
+#        
+#                if v in self.B:
+#                    right_side[iu] -= rate
+#        
+#        self.node_list = nodes
+#        self.node2i = node2i
+#        self.matrix =  matrix
+#        print "matrix", self.matrix
+#        self.right_side = right_side
+#        print self.matrix
+#        
+#    def compute_committors(self):
+#        self.make_matrix()
+#        committors = np.linalg.solve(self.matrix, self.right_side)
+#        self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
+##        self.committors = committors
+##        print "committors", committors
+#        return self.committor_dict
+
 class CommittorLinalg(object):
     def __init__(self, rates, A, B, debug=False, weights=None):
         self.rates = rates
@@ -15,16 +65,15 @@ class CommittorLinalg(object):
         for u, v in self.rates.iterkeys():
             self.nodes.add(u)
             self.nodes.add(v)
-        self.intermediates = self.nodes - self.A - self.B
         
     def make_matrix(self):
         intermediates = self.nodes - self.A - self.B
         
-        nodes = list(intermediates)
-        n = len(nodes)
-        matrix = np.zeros([n,n])
+        node_list = list(intermediates)
+        n = len(node_list)
+        matrix = scipy.sparse.dok_matrix((n,n))
         right_side = np.zeros(n)
-        node2i = dict([(node,i) for i, node in enumerate(nodes)])
+        node2i = dict([(node,i) for i, node in enumerate(node_list)])
         
         
         for uv, rate in self.rates.iteritems():
@@ -41,16 +90,14 @@ class CommittorLinalg(object):
                 if v in self.B:
                     right_side[iu] -= rate
         
-        self.node_list = nodes
+        self.node_list = node_list
         self.node2i = node2i
-        self.matrix =  matrix
-        print "matrix", self.matrix
+        self.matrix =  matrix.tocsr()
         self.right_side = right_side
-        print self.matrix
         
     def compute_committors(self):
         self.make_matrix()
-        committors = np.linalg.solve(self.matrix, self.right_side)
+        committors = scipy.sparse.linalg.spsolve(self.matrix, self.right_side)
         self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
 #        self.committors = committors
 #        print "committors", committors
@@ -158,6 +205,7 @@ class TwoStateRates(object):
             self.weights = dict([(a, 1.) for a in self.A])
         
         self.mfpt_computer = MfptLinalgSparse(self.rate_constants, self.B)
+        self.rate_constants = self.mfpt_computer.rates
 
     def get_rate_AB(self):
         rate = sum((self.weights[a] / self.mfptimes[a] for a in self.A))

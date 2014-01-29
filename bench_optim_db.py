@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse.linalg
 import time
 
-from rates_linalg import MfptLinalgSparse
+from rates_linalg import MfptLinalgSparse, TwoStateRates
 
 db = Database("db.40000.sqlite")
 #if db.number_of_minima() == 0:
@@ -90,6 +90,16 @@ print 1./times[A[0]] * np.exp(pele_rates.max_log_rate)
 print "sparse linalg finished in", t1-t0, "seconds"
 print "max time", max(mfpt.itervalues())
 print "min time", min(mfpt.itervalues())
+
+if True:
+    print "computing committors and steady state rate constants"
+    tsr = TwoStateRates(rates, A, B)
+    tsr.compute_rates()
+    rAB = tsr.get_rate_AB() * np.exp(pele_rates.max_log_rate)
+    print "rate AB", rAB
+    tsr.compute_committors()
+    rABss = tsr.get_rate_AB_SS() * np.exp(pele_rates.max_log_rate)
+    print "steady state rate", rABss
 
 if False:
     print "saving the graph structure"
