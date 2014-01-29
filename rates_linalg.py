@@ -51,9 +51,10 @@ class CommittorLinalg(object):
     def compute_committors(self):
         self.make_matrix()
         committors = np.linalg.solve(self.matrix, self.right_side)
-        self.committors = committors
+        self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
+#        self.committors = committors
 #        print "committors", committors
-        return committors
+        return self.committor_dict
     
 
 class MfptLinalgSparse(object):
@@ -153,25 +154,50 @@ class TwoStateRates(object):
         self.A = A
         self.B = B
         self.weights = weights
+        if self.weights is None:
+            self.weights = dict([(a, 1.) for a in self.A])
         
         self.mfpt_computer = MfptLinalgSparse(self.rate_constants, self.B)
 
     def get_rate_AB(self):
-        if self.weights is None:
-            self.weights = dict([(a, 1.) for a in self.A])
-        
-        rate = sum((self.weights[a] / self.mfptimes[a] for a in self.A
-                    ))
+        rate = sum((self.weights[a] / self.mfptimes[a] for a in self.A))
         norm = sum((self.weights[a] for a in self.A))
         
         return rate / norm
-            
+    
+    def get_rate_AB_SS(self):
+        """
+        sum ( CaB weights[b] / tau_b
+        """
+        # for each node a in A, compute the probability that it ends up in
+        # B before reaching another node in A.
+        a_committors = dict([(a, 0.) for a in self.A])
+        sum_rates = dict([(a, 0.) for a in self.A])
+        for uv, rate in self.rate_constants.iteritems():
+            u, v = uv
+            if u in self.A:
+                sum_rates[u] += rate
+                if v not in self.A:
+                    if v in self.B:
+                        vcomm = 1.
+                    else:
+                        vcomm = self.committor_dict[v]
+                    a_committors[u] += rate * vcomm
+        for a, c in a_committors.iteritems():
+            a_committors[a] /= sum_rates[a]
+        
+        rate = sum((self.weights[a] * a_committors[a] * sum_rates[a] for a in self.A))
+        norm = sum((self.weights[a] for a in self.A))
+        
+        return rate / norm
+
     
     def compute_rates(self):
         self.mfptimes = self.mfpt_computer.compute_mfpt()
     
-#    def compute_committors(self):
-#        self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
+    def compute_committors(self):
+        self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
+        self.committor_dict = self.committor_computer.compute_committors()
         
              
 

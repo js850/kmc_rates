@@ -1,7 +1,7 @@
 import unittest
 from test_graph_transformation import _three_state_rates, _MakeRandomGraph
 
-from rates_linalg import CommittorLinalg, MfptLinalgSparse
+from rates_linalg import CommittorLinalg, MfptLinalgSparse, TwoStateRates
 
 class TestLinalg3(unittest.TestCase):
     def setUp(self):
@@ -10,11 +10,15 @@ class TestLinalg3(unittest.TestCase):
         self.final_rate = 1.0
 
     def _test_rate(self, i, j):
-        reducer = MfptLinalgSparse(self.rates, [j])
-        mfpt_dict = reducer.compute_mfpt()
-        rAB = 1./mfpt_dict[i]
+        reducer = TwoStateRates(self.rates, [i], [j])
+        reducer.compute_rates()
+        rAB = reducer.get_rate_AB() 
         self.assertAlmostEqual(rAB, self.final_rate, 7)
-
+        
+        reducer.compute_committors()
+        rAB_ss = reducer.get_rate_AB_SS()
+        print "kSS", rAB_ss
+        
     def test01(self):
         self._test_rate(0,1)
 
