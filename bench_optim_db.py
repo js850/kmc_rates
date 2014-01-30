@@ -8,14 +8,15 @@ import time
 
 from rates_linalg import MfptLinalgSparse, TwoStateRates
 
-db = Database("db.40000.sqlite")
-#if db.number_of_minima() == 0:
-#    converter = OptimDBConverter(db, mindata="min.data.40000", 
-#             tsdata="ts.data.40000")
-#    converter.pointsmin_data = None
-#    converter.pointsts_data = None
-#    converter.ReadMindata()
-#    converter.ReadTSdata()
+#db = Database("db.cf.sqlite")
+db = Database()
+if db.number_of_minima() == 0:
+    converter = OptimDBConverter(db, mindata="pathsample/min.data.40000", 
+             tsdata="pathsample/ts.data.40000")
+    converter.pointsmin_data = None
+    converter.pointsts_data = None
+    converter.ReadMinDataFast()
+    converter.ReadTSdataFast()
 
 
 
@@ -43,7 +44,7 @@ print "energy of mB", m2.energy
 #                            db.transition_states())
 
 
-pele_rates = RateCalculation(db.transition_states(), A, B, T=.592, use_fvib=True)
+pele_rates = RateCalculation(db.transition_states(), A, B, T=.2, use_fvib=True)
 pele_rates._make_kmc_graph()
 
 rates = pele_rates.rate_constants
@@ -80,7 +81,7 @@ print "min rate constant", min(rates.itervalues())
 lin = MfptLinalgSparse(rates, B)
 lin.make_matrix(lin.nodes - lin.B)
 t0 = time.clock()
-mfpt = lin.compute_mfpt()
+mfpt = lin.compute_mfpt(use_umfpack=False)
 t1 = time.clock()
 times = lin.time_dict
 print "mean first passage times"

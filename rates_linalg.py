@@ -118,13 +118,14 @@ class MfptLinalgSparse(object):
 #        print "matrix", matrix
         self.matrix =  matrix.tocsr()
     
-    def compute_mfpt(self):
+    def compute_mfpt(self, use_umfpack=True):
         if not hasattr(self, "matrix"):
             self.make_matrix(self.nodes - self.B)
-        times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]))
+        times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
+                                            use_umfpack=use_umfpack)
         self.time_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
         if np.any(times < 0):
-            raise("error the mean first passage times are not all greater than zero")
+            raise RuntimeError("error the mean first passage times are not all greater than zero")
         return self.time_dict
 
 
