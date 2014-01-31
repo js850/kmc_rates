@@ -4,6 +4,7 @@ import scipy.sparse
 import scipy.sparse.linalg
 from numpy import bench
 from itertools import izip
+from collections import defaultdict
 
 
 class CommittorLinalg(object):
@@ -72,6 +73,29 @@ class MfptLinalgSparse(object):
             self.nodes.add(u)
             self.nodes.add(v)
         
+        self._make_sum_out_rates()
+        
+        self.time_dict = dict()
+    
+    def _make_sum_out_rates(self):
+        self.sum_out_rates = dict()
+        rates_list = defaultdict(list)
+        for uv, rate in self.rates.iteritems():
+            rates_list[uv[0]].append(rate)
+        
+        #sum rates more precisely
+        print "recomputing the sum of the rates more precisely"
+        for u, urates in rates_list.iteritems():
+            urates.sort()
+            sumrate = sum(urates)
+            if False:
+                import decimal
+                urates_dec = map(decimal.Decimal, urates)
+                sumrate = float(sum(urates_dec))
+            self.sum_out_rates[u] = sumrate
+
+            
+    
     def initialize(self):
         import networkx as nx
         graph = nx.Graph()
@@ -88,6 +112,14 @@ class MfptLinalgSparse(object):
             self.rates = dict((uv, rate) for uv, rate in self.rates.iteritems()
                               if uv[0] in connected_nodes
                               )
+
+        
+        graph = nx.Graph()
+        graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
+                                    self.rates.iterkeys()))
+        cc = nx.connected_components(graph)
+        self.subgroups = [set(c) for c in cc]
+        print "subgroup sizes", [len(c) for c in self.subgroups]
         
     def make_matrix(self, intermediates):
         assert not self.B.intersection(intermediates)
@@ -97,25 +129,19 @@ class MfptLinalgSparse(object):
         matrix = scipy.sparse.dok_matrix((n,n))
         node2i = dict([(node,i) for i, node in enumerate(node_list)])
         
-        for iu in xrange(len(node_list)):
-            matrix[iu,iu] = 0.
+        for iu, u in enumerate(node_list):
+            matrix[iu,iu] = -self.sum_out_rates[u]
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
-            if u in intermediates: 
+            if u in intermediates and v in intermediates: 
                 ui = node2i[u]
-                
-                matrix[ui,ui] -= rate
-                
-                if v in intermediates:
-                    vi = node2i[v]
-                    assert ui != vi
-                    matrix[ui,vi] = rate
-        
+                vi = node2i[v]
+                assert ui != vi
+                matrix[ui,vi] = rate
         
         self.node_list = node_list
         self.node2i = node2i
-#        print "matrix", matrix
         self.matrix =  matrix.tocsr()
     
     def compute_mfpt(self, use_umfpack=True):
@@ -127,6 +153,14 @@ class MfptLinalgSparse(object):
         if np.any(times < 0):
             raise RuntimeError("error the mean first passage times are not all greater than zero")
         return self.time_dict
+
+    def compute_mfpt_subgroups(self, use_umfpack=True):
+        for group in self.subgroups:
+            self.make_matrix(group)
+            times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
+                                                use_umfpack=use_umfpack)
+            for node, time in izip(self.node_list, times):
+                self.time_dict[node] = time
 
 
 class TwoStateRates(object):
