@@ -1,10 +1,57 @@
-
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
-from numpy import bench
 from itertools import izip
 from collections import defaultdict
+import networkx as nx
+import time
+
+
+def reduce_rates(rates, B, A=None):
+    B = set(B)
+    if A is not None:
+        A = set(A)
+    graph = nx.Graph()
+    graph.add_edges_from(rates.iterkeys())
+    
+    # remove nodes not connected to B
+    # TODO: this only works if B is fully connected
+    connected_nodes = nx.node_connected_component(graph, iter(B).next())
+    connected_nodes = set(connected_nodes)
+    all_nodes = set(graph.nodes())
+    if len(connected_nodes) != len(all_nodes):
+        print "removing", len(all_nodes) - len(connected_nodes), "nodes that are not connected to B"
+    
+        rates = dict((uv, rate) for uv, rate in rates.iteritems()
+                          if uv[0] in connected_nodes
+                          )
+        
+        if B - connected_nodes:
+            raise Exception("the nodes in B are not all connected")
+        
+        if A is not None:
+            if A - connected_nodes:
+                raise Exception("the A nodes are not all connected to the B nodes")
+
+    return rates
+
+def compute_sum_out_rates(rates):
+    rates_list = defaultdict(list)
+    for uv, rate in rates.iteritems():
+        rates_list[uv[0]].append(rate)
+    
+    #sum rates more precisely
+    print "recomputing the sum of the rates more precisely"
+    sum_out_rates = dict()
+    for u, urates in rates_list.iteritems():
+        urates.sort()
+        sumrate = sum(urates)
+        if False:
+            import decimal
+            urates_dec = map(decimal.Decimal, urates)
+            sumrate = float(sum(urates_dec))
+        sum_out_rates[u] = sumrate
+    return sum_out_rates
 
 
 class CommittorLinalg(object):
@@ -62,58 +109,28 @@ class CommittorLinalg(object):
 
 class MfptLinalgSparse(object):
     """compute mean first passage times using sparse linear algebra"""
-    def __init__(self, rates, B, check_graph=True):
+    def __init__(self, rates, B, sum_out_rates=None, check_graph=True):
         self.rates = rates
         self.B = set(B)
         if check_graph:
-            self.initialize()
+            self.rates = reduce_rates(self.rates, B)
+        if True:
+            self._make_subgroups()
         
         self.nodes = set()
         for u, v in self.rates.iterkeys():
             self.nodes.add(u)
             self.nodes.add(v)
         
-        self._make_sum_out_rates()
+        if sum_out_rates is None:
+            self.sum_out_rates = compute_sum_out_rates(self.rates)
+        else:
+            self.sum_out_rates = sum_out_rates
         
-        self.time_dict = dict()
+        self.mfpt_dict = dict()
+        self.time_solve = 0.
     
-    def _make_sum_out_rates(self):
-        self.sum_out_rates = dict()
-        rates_list = defaultdict(list)
-        for uv, rate in self.rates.iteritems():
-            rates_list[uv[0]].append(rate)
-        
-        #sum rates more precisely
-        print "recomputing the sum of the rates more precisely"
-        for u, urates in rates_list.iteritems():
-            urates.sort()
-            sumrate = sum(urates)
-            if False:
-                import decimal
-                urates_dec = map(decimal.Decimal, urates)
-                sumrate = float(sum(urates_dec))
-            self.sum_out_rates[u] = sumrate
-
-            
-    
-    def initialize(self):
-        import networkx as nx
-        graph = nx.Graph()
-        graph.add_edges_from(self.rates.iterkeys())
-        
-        # remove nodes not connected to B
-        # TODO: this only works if B is fully connected
-        connected_nodes = nx.node_connected_component(graph, iter(self.B).next())
-        connected_nodes = set(connected_nodes)
-        all_nodes = set(graph.nodes())
-        if len(connected_nodes) != len(all_nodes):
-            print "removing", len(all_nodes) - len(connected_nodes), "nodes that are not connected to B"
-        
-            self.rates = dict((uv, rate) for uv, rate in self.rates.iteritems()
-                              if uv[0] in connected_nodes
-                              )
-
-        
+    def _make_subgroups(self):
         graph = nx.Graph()
         graph.add_edges_from(filter(lambda uv: uv[0] not in self.B and uv[1] not in self.B,
                                     self.rates.iterkeys()))
@@ -147,34 +164,42 @@ class MfptLinalgSparse(object):
     def compute_mfpt(self, use_umfpack=True):
         if not hasattr(self, "matrix"):
             self.make_matrix(self.nodes - self.B)
+        t0 = time.clock()
         times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
                                             use_umfpack=use_umfpack)
-        self.time_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
+        self.time_solve += time.clock() - t0
+        self.mfpt_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
         if np.any(times < 0):
             raise RuntimeError("error the mean first passage times are not all greater than zero")
-        return self.time_dict
+        return self.mfpt_dict
 
     def compute_mfpt_subgroups(self, use_umfpack=True):
         for group in self.subgroups:
             self.make_matrix(group)
+            t0 = time.clock()
             times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
                                                 use_umfpack=use_umfpack)
+            self.time_solve += time.clock() - t0
             for node, time in izip(self.node_list, times):
-                self.time_dict[node] = time
+                self.mfpt_dict[node] = time
 
 
 class TwoStateRates(object):
     """compute committors and several different rates between two groups"""
     def __init__(self, rate_constants, A, B, weights=None):
-        self.rate_constants = rate_constants
+        self.rate_constants = reduce_rates(rate_constants, B, A=A)
         self.A = A
         self.B = B
         self.weights = weights
         if self.weights is None:
             self.weights = dict([(a, 1.) for a in self.A])
         
-        self.mfpt_computer = MfptLinalgSparse(self.rate_constants, self.B)
-        self.rate_constants = self.mfpt_computer.rates
+        self.sum_out_rates = compute_sum_out_rates(self.rate_constants)
+        self.mfpt_computer = MfptLinalgSparse(self.rate_constants, self.B,
+                                              sum_out_rates=self.sum_out_rates, 
+                                              check_graph=False)
+        
+        
 
     def get_rate_AB(self):
         """return the rate from A to B
@@ -221,9 +246,12 @@ class TwoStateRates(object):
         else:
             return self.committor_dict[x]
     
-    def compute_rates(self):
+    def compute_rates(self, use_umfpack=True, subgroups=False):
         """compute the mean first passage times."""
-        self.mfptimes = self.mfpt_computer.compute_mfpt()
+        if subgroups:
+            self.mfptimes = self.mfpt_computer.compute_mfpt_subgroups(use_umfpack=use_umfpack)
+        else:
+            self.mfptimes = self.mfpt_computer.compute_mfpt(use_umfpack=use_umfpack)
     
     def compute_committors(self):
         """compute the committors""" 
