@@ -65,6 +65,8 @@ class CommittorLinalg(object):
             self.nodes.add(u)
             self.nodes.add(v)
         
+        self.time_solve = 0.
+        
     def make_matrix(self):
         intermediates = self.nodes - self.A - self.B
         
@@ -100,7 +102,9 @@ class CommittorLinalg(object):
             # some versions of scipy can't handle matrices of size 1
             committors = np.array([self.right_side[0] / self.matrix[0,0]])
         else:
+            t0 = time.clock()
             committors = scipy.sparse.linalg.spsolve(self.matrix, self.right_side)
+            self.time_solve += time.clock() - t0
         self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
 #        self.committors = committors
 #        print "committors", committors
@@ -136,7 +140,11 @@ class MfptLinalgSparse(object):
                                     self.rates.iterkeys()))
         cc = nx.connected_components(graph)
         self.subgroups = [set(c) for c in cc]
-        print "subgroup sizes", [len(c) for c in self.subgroups]
+        print len(self.subgroups), "subgroups"
+        if len(self.subgroups) <= 10:
+            print "subgroup sizes", [len(c) for c in self.subgroups]
+        else:
+            print "subgroup sizes", [len(c) for c in self.subgroups[:10]], "..."
         
     def make_matrix(self, intermediates):
         assert not self.B.intersection(intermediates)
@@ -216,23 +224,21 @@ class TwoStateRates(object):
         return the steady state rate from A to B
         """
         # for each node a in A, compute the probability that it ends up in
-        # B before reaching another node in A.
+        # B before coming back to itself or reaching another node in A.
         a_committors = dict([(a, 0.) for a in self.A])
-        sum_rates = dict([(a, 0.) for a in self.A])
         for uv, rate in self.rate_constants.iteritems():
             u, v = uv
-            if u in self.A:
-                sum_rates[u] += rate
-                if v not in self.A:
-                    if v in self.B:
-                        vcomm = 1.
-                    else:
-                        vcomm = self.committor_dict[v]
-                    a_committors[u] += rate * vcomm
+            if u in self.A and v not in self.A:
+                if v in self.B:
+                    vcomm = 1.
+                else:
+                    vcomm = self.committor_dict[v]
+                a_committors[u] += rate * vcomm
         for a, c in a_committors.iteritems():
-            a_committors[a] /= sum_rates[a]
+            a_committors[a] /= self.sum_out_rates[a]
+        # the sum_out_rates cancels here, we can remove it
         
-        rate = sum((self.weights[a] * a_committors[a] * sum_rates[a] for a in self.A))
+        rate = sum((self.weights[a] * a_committors[a] * self.sum_out_rates[a] for a in self.A))
         norm = sum((self.weights[a] for a in self.A))
         
         return rate / norm
