@@ -11,6 +11,8 @@ def reduce_rates(rates, B, A=None):
     B = set(B)
     if A is not None:
         A = set(A)
+        if A.intersection(B):
+            raise Exception("A and B share", len(A.intersection(B)), "nodes")
     graph = nx.Graph()
     graph.add_edges_from(rates.iterkeys())
     
@@ -194,8 +196,11 @@ class MfptLinalgSparse(object):
 
 class TwoStateRates(object):
     """compute committors and several different rates between two groups"""
-    def __init__(self, rate_constants, A, B, weights=None):
-        self.rate_constants = reduce_rates(rate_constants, B, A=A)
+    def __init__(self, rate_constants, A, B, weights=None, check_rates=True):
+        if check_rates:
+            self.rate_constants = reduce_rates(rate_constants, B, A=A)
+        else:
+            self.rate_constants = rate_constants
         self.A = A
         self.B = B
         self.weights = weights

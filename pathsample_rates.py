@@ -3,12 +3,47 @@ import sys
 import os
 import time
 import numpy as np
+import networkx as nx
 
 from pele.utils.optim_compatibility import OptimDBConverter
 from pele.storage import Database
 from pele.rates import RateCalculation
 
-from rates_linalg import TwoStateRates
+from rates_linalg import TwoStateRates, reduce_rates
+
+def _check_AB(connected_components, A, AB="A"):
+    Aclist = [A.intersection(c) for c in connected_components]
+    Aclist = filter(lambda c:len(c)>0, Aclist)
+    Aconn = set()
+    for c in Aclist: Aconn.update(c)
+    if Aconn != A:
+        print "the following", AB, "nodes are not connected at all"
+        print [m._id for m in A - Aconn]
+    if len(Aclist) > 1:
+        print "the following groups of", AB, "minima are connected within the group but not between groups"
+        for c in Aclist:
+            print len(c), "minima:", [m._id for m in c]
+
+def analyze_graph_error(rates, A, B):
+    A = set(A)
+    B = set(B)
+    
+    if A.intersection(B):
+        print "the following minima are in both A and B"
+        print [m._id for m in A.intersection(B)]
+    
+    graph = nx.Graph()
+    graph.add_edges_from(rates.iterkeys())
+    
+    # remove nodes not connected to B
+    # TODO: this only works if B is fully connected
+    cclist = nx.connected_components(graph)
+    cclist = [set(c) for c in cclist]
+    
+    _check_AB(cclist, A, AB="A")
+    _check_AB(cclist, B, AB="B")
+    
+     
 
 def read_minA(fname, db):
     with open(fname) as fin:
@@ -41,9 +76,11 @@ def load_database(directory):
     return db, A, B
 
 def make_rates(database, A, B, T):
+    print "computing rates from transition states"
     pele_rates = RateCalculation(database.transition_states(), A, B, T=T, use_fvib=True)
     pele_rates._make_kmc_graph()
     rates = pele_rates.rate_constants
+    print "computing equilibrium occupation probabilities"
     Peq = pele_rates._get_equilibrium_occupation_probabilities()
     
     return rates, Peq, np.exp(-pele_rates.max_log_rate)
@@ -63,8 +100,15 @@ def main():
     db, A, B = load_database(args.d)
     # compute rate constants
     rate_constants, Peq, knorm = make_rates(db, A, B, args.T)
+    print "checking and reducing the graph structure"
+    try:
+        rate_constants = reduce_rates(rate_constants, B, A=A)
+    except Exception:
+        analyze_graph_error(rate_constants, A, B)
+        raise
+        
     
-    calculator = TwoStateRates(rate_constants, A, B, weights=Peq)
+    calculator = TwoStateRates(rate_constants, A, B, weights=Peq, check_rates=False)
     calculator.compute_rates(use_umfpack=True)
     kAB = calculator.get_rate_AB()
     
