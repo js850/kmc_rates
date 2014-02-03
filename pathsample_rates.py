@@ -6,25 +6,15 @@ from itertools import izip
 import numpy as np
 import networkx as nx
 
-
-from pele.utils.optim_compatibility import OptimDBConverter
-from pele.storage import Database
-from pele.rates import RateCalculation
-
 from rates_linalg import TwoStateRates, reduce_rates
 
 
 def log_sum2(a, b):
-    """
-    return log( exp(a) + exp(b) )
-    """
+    """return log( exp(a) + exp(b) )"""
     if a > b:
         return a + np.log(1.0 + np.exp(-a + b) )
     else:
         return b + np.log(1.0 + np.exp(a - b) )
-
-
-
 
 class RatesFromPathsampleDB(object):
     """read minima and ts data from pathsample database and compute rate constants"""
@@ -154,7 +144,7 @@ def analyze_graph_error(rates, A, B):
     _check_AB(cclist, A, AB="A")
     _check_AB(cclist, B, AB="B")
 
-def read_minA(fname, db=None):
+def read_minA(fname):
     """load data from min.A or min.B"""
     with open(fname) as fin:
         ids = []
@@ -167,37 +157,7 @@ def read_minA(fname, db=None):
     
     assert nminima == len(ids)
     print len(ids), "minima read from file:", fname
-    if db is None:
-        return ids
-    else:
-        return [db.getMinimum(n) for n in ids]
-
-def load_database(directory):
-    print "reading from directory:", os.path.abspath(directory)
-    db = Database()
-    converter = OptimDBConverter(db, mindata=directory+"/min.data", 
-             tsdata=directory+"/ts.data")
-    converter.pointsmin_data = None
-    converter.pointsts_data = None
-    converter.ReadMinDataFast()
-    converter.ReadTSdataFast()
-
-    A = read_minA(directory+"/min.A", db)
-    B = read_minA(directory+"/min.B", db)
-    print len(A), "A minima read from min.A"
-    print len(B), "B minima read from min.B"
-    
-    return db, A, B
-
-def make_rates_pele(database, A, B, T):
-    print "computing rates from transition states"
-    pele_rates = RateCalculation(database.transition_states(), A, B, T=T, use_fvib=True)
-    pele_rates._make_kmc_graph()
-    rates = pele_rates.rate_constants
-    print "computing equilibrium occupation probabilities"
-    Peq = pele_rates._get_equilibrium_occupation_probabilities()
-    
-    return rates, Peq, np.exp(-pele_rates.max_log_rate)
+    return ids
 
 def make_rates(directory, T):
     """compute rate constants and equilibrium occupation probabilities from pathsample database"""
@@ -220,42 +180,10 @@ def main():
     directory = args.d
     print "reading from directory:", os.path.abspath(directory)
     
-#     if True:
-#         reader = RatesFromPathsampleDB(args.T)
-#         reader.parse_files("min.data.cf", "ts.data.cf")
-#         exit()
-    
-    if True:
-        A = read_minA(directory+"/min.A")
-        B = read_minA(directory+"/min.B")
-        rate_constants, Peq, knorm = make_rates(args.d, args.T)
-        if True:
-            print "DEBUG"
-            db1, A1, B1 = load_database(args.d)
-            # compute rate constants
-            rate_constants1, Peq1, knorm1 = make_rates_pele(db1, A1, B1, args.T)
-            assert len(rate_constants) == len(rate_constants1)
-            print "knormtest", knorm, knorm1
-            for uv, k1 in rate_constants.iteritems():
-                k1 /= knorm
-                k2 = rate_constants1[uv] / knorm1
-                if np.abs(k2-k1)/k1 > 1e-4:
-                    print "warning:   %s %s %s" % (uv, k1, k2)
-            a = iter(A1).next()
-            pa = Peq[a._id]
-            pa1 = Peq1[a]
-            for u, p1 in Peq1.iteritems():
-                p1 /= pa1
-                p = Peq[u._id] / pa
-                if np.abs(p-p1) > 1e-4:
-                    print "warning", u._id, p, p1
+    A = read_minA(directory+"/min.A")
+    B = read_minA(directory+"/min.B")
+    rate_constants, Peq, knorm = make_rates(args.d, args.T)
             
-            
-    else:
-        # load the database
-        db, A, B = load_database(args.d)
-        # compute rate constants
-        rate_constants, Peq, knorm = make_rates_pele(db, A, B, args.T)
 
     if True:
         fname = "out.rate_consts"
