@@ -1,3 +1,10 @@
+"""Compute rates from a pathsample database.  The rates are computed
+by solving a set of linear equations using a sparse solver.
+
+Requirements
+------------
+Python2.7 and the packages numpy, scipy, and networkx.  
+"""
 import argparse
 import sys
 import os
@@ -168,9 +175,16 @@ def make_rates(directory, T):
     return generator.rate_constants, generator.Peq, generator.rate_norm
 
 
+description="""Compute rates from a pathsample database.  The transition
+states and minima data are read from min.data and ts.data.  The product
+and reactant states are read from min.A and min.B.  The rates are computed
+by solving a set of linear equations using a sparse solver.
+"""
+
 def main():
+    """the main loop"""
     tstart =  time.clock()
-    parser = argparse.ArgumentParser(description="compute rates from a pathsample database")
+    parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument("-d", type=str, default=".",
                         help="directory with the min.data, ts.data files")
@@ -199,11 +213,11 @@ def main():
         analyze_graph_error(rate_constants, A, B)
         raise
     
-    
+    print "computing mean first passage times"
     calculator = TwoStateRates(rate_constants, A, B, weights=Peq, check_rates=False)
     calculator.compute_rates(use_umfpack=True)
+    print "computing rates"
     kAB = calculator.get_rate_AB()
-    
     print "k(B<-A)", kAB / knorm
     
     if True:
@@ -218,7 +232,9 @@ def main():
     print "computing committor probabilities"
     sys.stdout.flush()
     calculator.compute_committors()
-    print "kSS(B<-A)", calculator.get_rate_AB_SS() / knorm
+    print "computing steady state rates"
+    kSS = calculator.get_rate_AB_SS() / knorm
+    print "kSS(B<-A)", kSS
     
     if True:
         fname = "out.committors"
