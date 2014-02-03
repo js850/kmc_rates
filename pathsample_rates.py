@@ -23,20 +23,11 @@ def log_sum2(a, b):
     else:
         return b + np.log(1.0 + np.exp(a - b) )
 
-def compute_log_rates(m1vals, tsdata, T):
-    menergy = m1vals[:,0]
-    mfvib = m1vals[:,1]
-    mpgorder = m1vals[:,2]
-    tsenergy = tsdata[:,0]
-    tsfvib = tsdata[:,1]
-    tspgorder = tsdata[:,2]
-    return (np.log(mpgorder / (2. * np.pi * tspgorder))
-            + (mfvib - tsfvib)/2. 
-            - (tsenergy - menergy) / T)
 
 
 
 class RatesFromPathsampleDB(object):
+    """read minima and ts data from pathsample database and compute rate constants"""
     def __init__(self, mindata_file, tsdata_file, T):
         self.T = T
         self.run(mindata_file, tsdata_file)
@@ -50,19 +41,31 @@ class RatesFromPathsampleDB(object):
         energy = mindata[:,0]
         fvib = mindata[:,1]
         pgorder = mindata[:,2]
-        return (-self.T * energy - np.log(pgorder) - 0.5 * fvib)
+        return (-energy / self.T - np.log(pgorder) - 0.5 * fvib)
     
+    def _compute_log_rates(self, m1vals, tsdata, T):
+        menergy = m1vals[:,0]
+        mfvib = m1vals[:,1]
+        mpgorder = m1vals[:,2]
+        tsenergy = tsdata[:,0]
+        tsfvib = tsdata[:,1]
+        tspgorder = tsdata[:,2]
+        return (np.log(mpgorder / (2. * np.pi * tspgorder))
+                + (mfvib - tsfvib) / 2. 
+                - (tsenergy - menergy) / T)
+
     def compute_rates(self, mindata, tsdata, mindices):
         """return the array of rates over the transition states
         """
         m1vals = mindata[mindices,:]
         
         assert m1vals.shape[0] == tsdata.shape[0]
-        return compute_log_rates(m1vals, tsdata, self.T)
+        return self._compute_log_rates(m1vals, tsdata, self.T)
     
     def make_rates_dict(self, m1_indices, m2_indices, log_kuv_list, log_kvu_list):
         """turn the arrays into a dictionary of rates"""
         log_rates = dict()
+        assert m1_indices.size == m2_indices.size == log_kuv_list.size == log_kvu_list.size
         
         
         for u, v, log_kuv, log_kvu in izip(m1_indices, m2_indices, 
@@ -85,15 +88,14 @@ class RatesFromPathsampleDB(object):
         # mindata format
         # energy fvib pgorder I1 I2 I3
         print "reading minima data from file:", mindataf
-        mindata = np.genfromtxt(mindataf)
-#         mindata = mindata[:,:3]
+        mindata = np.genfromtxt(mindataf, usecols=[0,1,2])
         
         # tsdata format
         # energy fvib pgorder min1 min2 I1 I2 I3
         print "reading transition state data from file:", tsdataf
-        tsdata = np.genfromtxt(tsdataf)
-#         tsdata = tsdata[:,:5]
+        tsdata = np.genfromtxt(tsdataf, usecols=[0,1,2,3,4])
         
+        # subtract 1 so that the indexing starts from 0
         m1_indices = tsdata[:,3].astype(int) - 1
         m2_indices = tsdata[:,4].astype(int) - 1
         
@@ -108,11 +110,16 @@ class RatesFromPathsampleDB(object):
         self.rate_norm = np.exp(-max_log_rate)
         
         self.rate_constants = self.make_rates_dict(m1_indices, m2_indices, log_k12, log_k21)
+        # add 1 to all the minima id's so that it corresponds to the pathsample indexing
+        self.rate_constants = dict(( ((u+1, v+1), rate) for (u,v), rate
+                                     in self.rate_constants .iteritems()
+                                    ))
         
         print "computing equilibrium occupation probabilities"
         log_Peq = self._log_equilibrium_occupation_probabilities(mindata)
         Peq = np.exp(log_Peq - log_Peq.max())
-        self.Peq = dict(( (u, P) for u, P in enumerate(Peq) ))
+        # add 1 to all the minima id's so that it corresponds to the pathsample indexing
+        self.Peq = dict(( (u+1, P) for u, P in enumerate(Peq) ))
         
 
 def _check_AB(connected_components, A, AB="A"):
@@ -122,11 +129,11 @@ def _check_AB(connected_components, A, AB="A"):
     for c in Aclist: Aconn.update(c)
     if Aconn != A:
         print "the following", AB, "nodes are not connected at all"
-        print [m._id for m in A - Aconn]
+        print [m for m in A - Aconn]
     if len(Aclist) > 1:
         print "the following groups of", AB, "minima are connected within the group but not between groups"
         for c in Aclist:
-            print len(c), "minima:", [m._id for m in c]
+            print len(c), "minima:", [m for m in c]
 
 def analyze_graph_error(rates, A, B):
     A = set(A)
@@ -134,7 +141,7 @@ def analyze_graph_error(rates, A, B):
     
     if A.intersection(B):
         print "the following minima are in both A and B"
-        print [m._id for m in A.intersection(B)]
+        print [m for m in A.intersection(B)]
     
     graph = nx.Graph()
     graph.add_edges_from(rates.iterkeys())
@@ -146,10 +153,9 @@ def analyze_graph_error(rates, A, B):
     
     _check_AB(cclist, A, AB="A")
     _check_AB(cclist, B, AB="B")
-    
-     
 
 def read_minA(fname, db=None):
+    """load data from min.A or min.B"""
     with open(fname) as fin:
         ids = []
         for i, line in enumerate(fin):
@@ -160,6 +166,7 @@ def read_minA(fname, db=None):
                 ids += map(int, sline)
     
     assert nminima == len(ids)
+    print len(ids), "minima read from file:", fname
     if db is None:
         return ids
     else:
@@ -193,7 +200,7 @@ def make_rates_pele(database, A, B, T):
     return rates, Peq, np.exp(-pele_rates.max_log_rate)
 
 def make_rates(directory, T):
-    print "reading from directory:", os.path.abspath(directory)
+    """compute rate constants and equilibrium occupation probabilities from pathsample database"""
     mindata = directory + "/min.data"
     tsdata = directory + "/ts.data"
     generator = RatesFromPathsampleDB(mindata, tsdata, T)
@@ -211,6 +218,7 @@ def main():
     args = parser.parse_args()
     print "temperature", args.T
     directory = args.d
+    print "reading from directory:", os.path.abspath(directory)
     
 #     if True:
 #         reader = RatesFromPathsampleDB(args.T)
@@ -220,14 +228,41 @@ def main():
     if True:
         A = read_minA(directory+"/min.A")
         B = read_minA(directory+"/min.B")
-        print len(A), "A minima read from min.A"
-        print len(B), "B minima read from min.B"
         rate_constants, Peq, knorm = make_rates(args.d, args.T)
+        if True:
+            print "DEBUG"
+            db1, A1, B1 = load_database(args.d)
+            # compute rate constants
+            rate_constants1, Peq1, knorm1 = make_rates_pele(db1, A1, B1, args.T)
+            assert len(rate_constants) == len(rate_constants1)
+            print "knormtest", knorm, knorm1
+            for uv, k1 in rate_constants.iteritems():
+                k1 /= knorm
+                k2 = rate_constants1[uv] / knorm1
+                if np.abs(k2-k1)/k1 > 1e-4:
+                    print "warning:   %s %s %s" % (uv, k1, k2)
+            a = iter(A1).next()
+            pa = Peq[a._id]
+            pa1 = Peq1[a]
+            for u, p1 in Peq1.iteritems():
+                p1 /= pa1
+                p = Peq[u._id] / pa
+                if np.abs(p-p1) > 1e-4:
+                    print "warning", u._id, p, p1
+            
+            
     else:
         # load the database
         db, A, B = load_database(args.d)
         # compute rate constants
         rate_constants, Peq, knorm = make_rates_pele(db, A, B, args.T)
+
+    if True:
+        fname = "out.rate_consts"
+        print "saving rate constants to", fname
+        with open(fname, "w") as fout:
+            for (u,v), k in sorted(rate_constants.iteritems()):
+                fout.write("%6d %6d %s\n" % (u,v,k/knorm))
 
     print "checking and reducing the graph structure"
     try:
@@ -235,7 +270,7 @@ def main():
     except Exception:
         analyze_graph_error(rate_constants, A, B)
         raise
-        
+    
     
     calculator = TwoStateRates(rate_constants, A, B, weights=Peq, check_rates=False)
     calculator.compute_rates(use_umfpack=True)

@@ -8,11 +8,11 @@ import time
 
 from rates_linalg import MfptLinalgSparse, TwoStateRates
 
-db = Database("db.cf.sqlite")
-#db = Database()
+#db = Database("db.cf.sqlite")
+db = Database()
 if db.number_of_minima() == 0:
-    converter = OptimDBConverter(db, mindata="pathsample/min.data.40000", 
-             tsdata="pathsample/ts.data.40000")
+    converter = OptimDBConverter(db, mindata="min.data", 
+             tsdata="ts.data")
     converter.pointsmin_data = None
     converter.pointsts_data = None
     converter.ReadMinDataFast()
@@ -20,8 +20,8 @@ if db.number_of_minima() == 0:
 
 
 
-m1 = db.getMinimum(18)
-m2 = db.getMinimum(1)
+m1 = db.getMinimum(1)
+m2 = db.getMinimum(3)
 print "m1, m2", m1._id, m2._id
 A = [m1]
 B = [m2]
@@ -43,10 +43,21 @@ print "energy of mB", m2.energy
 # transition_states = filter(lambda ts: ts.minimum1 in nodes and ts.minimum2 in nodes, 
 #                            db.transition_states())
 
-
-pele_rates = RateCalculation(db.transition_states(), A, B, T=0.592, use_fvib=True)
+T=1.
+print "temperature", T
+if True:
+    tstates = list(db.transition_states())
+    print len(tstates)
+pele_rates = RateCalculation(db.transition_states(), A, B, T=T, use_fvib=True)
 pele_rates._make_kmc_graph()
 rates = pele_rates.rate_constants
+rate_norm = np.exp(-pele_rates.max_log_rate)
+
+if True:
+    print "saving rate constants to"
+    with open("test_rate_consts", "w") as fout:
+        for (u,v), k in sorted(rates.iteritems(), key=lambda m: (m[0][0]._id, m[0][1]._id)):
+            fout.write("%6d %6d %s\n" % (u._id,v._id,k/rate_norm))
 
 if False:
     print "making all rates 1"
@@ -87,7 +98,7 @@ else:
     lin.compute_mfpt_subgroups(use_umfpack=True)
     mfpt = lin.time_dict
 t1 = time.clock()
-times = lin.time_dict
+times = lin.mfpt_dict
 print "mean first passage times"
 print times[A[0]] / np.exp(pele_rates.max_log_rate)
 print "rates"
@@ -95,6 +106,8 @@ print 1./times[A[0]] * np.exp(pele_rates.max_log_rate)
 print "sparse linalg finished in", t1-t0, "seconds"
 print "max time", max(mfpt.itervalues())
 print "min time", min(mfpt.itervalues())
+
+            
 
 if True:
     print "computing committors and steady state rate constants"

@@ -43,7 +43,7 @@ def compute_sum_out_rates(rates):
         rates_list[uv[0]].append(rate)
     
     #sum rates more precisely
-    print "recomputing the sum of the rates more precisely"
+#    print "recomputing the sum of the rates more precisely"
     sum_out_rates = dict()
     for u, urates in rates_list.iteritems():
         urates.sort()
@@ -120,7 +120,8 @@ class MfptLinalgSparse(object):
         self.B = set(B)
         if check_graph:
             self.rates = reduce_rates(self.rates, B)
-        if True:
+    
+        if False:
             self._make_subgroups()
         
         self.nodes = set()
