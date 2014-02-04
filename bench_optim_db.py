@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse.linalg
 import time
 
-from rates_linalg import MfptLinalgSparse, TwoStateRates
+from rates_linalg import MfptLinalgSparse, TwoStateRates, EstimateRates
 
 #db = Database("db.cf.sqlite")
 db = Database()
@@ -109,15 +109,30 @@ print "max time", max(mfpt.itervalues())
 print "min time", min(mfpt.itervalues())
 
 if True:
+    print "\nestimating rates"
+    estimator = EstimateRates(lin.rates, Peq, B)
+    print "rate estimate", estimator.rate_estimates[A[0]] / rate_norm
+    estimates = dict()
+    for u, t in lin.mfpt_dict.iteritems():
+        kcalc = 1. / t / rate_norm
+        kest = estimator.rate_estimates[u] / rate_norm
+#        print u._id, kcalc, kest, kcalc / kest
+        estimates[u] = (kcalc, kest)
+    print "max rate", max([kcalc for kcalc, kest in estimates.values()])
+    print "min rate", min([kcalc for kcalc, kest in estimates.values()])
+    print "max ratio", max([kest / kcalc for kcalc, kest in estimates.values()])
+    print "min ratio", min([kest / kcalc for kcalc, kest in estimates.values()])
+
+if True:
     print "computing rates using symmetric method"
     lin.compute_mfpt_symmetric(Peq)
     print "rate symetric", 1./lin.mfpt_dict[A[0]] / rate_norm
             
-if True:
+if False:
     print "computing rates using conjugant gradient method"
     lin.compute_mfpt(cg=True)
     print "rate cg", 1./lin.mfpt_dict[A[0]] / rate_norm
-            
+
 
 if True:
     print "computing committors and steady state rate constants"

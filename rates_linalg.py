@@ -58,6 +58,68 @@ def compute_sum_out_rates(rates):
     return sum_out_rates
 
 
+class EstimateRates(object):
+    """make a rough estimate of the rates
+    
+    This is aimed to be used as an initial guess for the rate solver.
+    Equivalently it can be used to precondition the matrix in the system of
+    linear equations
+    """
+    def __init__(self, rate_constants, Peq, B):
+        self.union_find = nx.utils.UnionFind()
+        self.rate_constants = rate_constants
+        self.Peq = Peq
+        self.B = set(iter(B))
+        
+        self.run()
+    
+    def run(self):
+        # add B to the union find and make sure they're all connected
+        b = iter(self.B).next()
+        for x in self.B:
+            if x != b:
+                self.union_find.union(x, b)
+        
+        #sort edges by rate with biggest rate to the left
+        edges = [((u,v), k*self.Peq[u]) for (u,v), k in 
+                 self.rate_constants.iteritems() if u<v]
+        edges.sort(key=lambda uvk: -uvk[1])
+        assert edges[0][1] > edges[1][1]
+        edges = [uv for uv, k in edges]
+        
+        rate_estimates = dict()
+        unlabeled = set(self.Peq.iterkeys())
+        for u, v in edges:
+            broot = self.union_find[b]
+            uroot = self.union_find[u]
+            vroot = self.union_find[v]
+            if uroot == vroot:
+                continue
+            
+            if uroot == broot or vroot == broot:
+                if uroot == broot:
+                    new_root = vroot
+                if vroot == broot:
+                    new_root = uroot
+                
+                # all nodes with root new_root are newly connected to the B nodes
+                tsrate = self.rate_constants[(u,v)] * self.Peq[u]
+                for x in list(unlabeled):
+                    if self.union_find[x] == new_root:
+                        rate_estimates[x] = tsrate * self.Peq[x]
+                        unlabeled.remove(x)
+                    
+            self.union_find.union(u,v)
+
+        self.rate_estimates = rate_estimates
+                
+                
+            
+        
+        
+    
+
+
 class CommittorLinalg(object):
     """compute committor probabilites using sparse linear algebra"""
     def __init__(self, rates, A, B, debug=False, weights=None):
