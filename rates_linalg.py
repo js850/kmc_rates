@@ -73,6 +73,16 @@ class EstimateRates(object):
         
         self.run()
     
+    def minimum_spaning_edges(self, edges):
+        # assume the edges are already sorted appropriately
+        subtrees = self.union_find
+        for u,v in edges:
+            uroot, vroot = subtrees[u], subtrees[v]
+            if uroot != vroot:
+                yield u, v, uroot, vroot
+                subtrees.union(u,v)
+
+    
     def run(self):
         # add B to the union find and make sure they're all connected
         b = iter(self.B).next()
@@ -88,28 +98,29 @@ class EstimateRates(object):
         edges = [uv for uv, k in edges]
         
         rate_estimates = dict()
-        unlabeled = set(self.Peq.iterkeys())
-        for u, v in edges:
+        graph = nx.Graph()
+        for u, v, uroot, vroot in self.minimum_spaning_edges(edges):
             broot = self.union_find[b]
-            uroot = self.union_find[u]
-            vroot = self.union_find[v]
-            if uroot == vroot:
-                continue
             
             if uroot == broot or vroot == broot:
                 if uroot == broot:
-                    new_root = vroot
+                    new_node = v
                 if vroot == broot:
-                    new_root = uroot
+                    new_node = u
                 
                 # all nodes with root new_root are newly connected to the B nodes
                 tsrate = self.rate_constants[(u,v)] * self.Peq[u]
-                for x in list(unlabeled):
-                    if self.union_find[x] == new_root:
-                        rate_estimates[x] = tsrate * self.Peq[x]
-                        unlabeled.remove(x)
+                if new_node not in graph:
+                    graph.add_node(new_node)
+                nodes = nx.node_connected_component(graph, new_node)
+                for x in nodes:
+                    assert x not in rate_estimates
+                    rate_estimates[x] = tsrate * self.Peq[x]
+                
+                graph.remove_nodes_from(nodes)
+            else:
+                graph.add_edge(u,v)
                     
-            self.union_find.union(u,v)
 
         self.rate_estimates = rate_estimates
                 
