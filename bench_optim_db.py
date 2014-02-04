@@ -52,6 +52,7 @@ pele_rates = RateCalculation(db.transition_states(), A, B, T=T, use_fvib=True)
 pele_rates._make_kmc_graph()
 rates = pele_rates.rate_constants
 rate_norm = np.exp(-pele_rates.max_log_rate)
+Peq = pele_rates._get_equilibrium_occupation_probabilities()
 
 if True:
     print "saving rate constants to"
@@ -107,6 +108,10 @@ print "sparse linalg finished in", t1-t0, "seconds"
 print "max time", max(mfpt.itervalues())
 print "min time", min(mfpt.itervalues())
 
+if True:
+    print "computing rates using symmetric method"
+    lin.compute_mfpt_symmetric(Peq)
+    print "rate symetric", 1./lin.mfpt_dict[A[0]] / rate_norm
             
 
 if True:

@@ -114,6 +114,7 @@ class GraphReduction(object):
     def _remove_nodes(self, nodes):
         nodes = list(nodes)
         # The calculation is faster if we remove the nodes with the least edges first
+        # TODO: should probably recalculate which nodes have fewest edges at each step
         nodes.sort(key=lambda x: self.graph.in_degree(x) + self.graph.out_degree(x))
         for x in nodes:
             self._remove_node(x)

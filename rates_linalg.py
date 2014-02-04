@@ -6,6 +6,7 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 import networkx as nx
+from scipy.weave.catalog import intermediate_dir
 
 
 def reduce_rates(rates, B, A=None):
@@ -184,6 +185,46 @@ class MfptLinalgSparse(object):
         if np.any(times < 0):
             raise RuntimeError("error the mean first passage times are not all greater than zero")
         return self.mfpt_dict
+    
+    def compute_mfpt_symmetric(self, Peq):
+        intermediates = self.nodes - self.B
+        
+        node_list = list(intermediates)
+        n = len(node_list)
+        matrix = scipy.sparse.dok_matrix((n,n))
+        node2i = dict([(node,i) for i, node in enumerate(node_list)])
+        
+        right_side = -np.array([Peq[u] for u in node_list])
+        
+        for iu, u in enumerate(node_list):
+            matrix[iu,iu] = -self.sum_out_rates[u] * Peq[u]
+        
+        for uv, rate in self.rates.iteritems():
+            u, v = uv
+            if u in intermediates and v in intermediates: 
+                ui = node2i[u]
+                vi = node2i[v]
+                assert ui != vi
+                matrix[ui,vi] = rate * Peq[u]
+        
+        node_list = node_list
+        node2i = node2i
+        matrix =  matrix.tocsc()
+        
+        t0 = time.clock()
+        from scikits.sparse.cholmod import cholesky
+        factor = cholesky(matrix)
+        times = factor(right_side)
+#        times = scikits.sparse.spsolve(matrix, right_side,
+#                                            use_umfpack=True)
+        print "time solving symmetric linalg", time.clock() - t0
+        self.time_solve += time.clock() - t0
+        self.mfpt_dict = dict(((node, time) for node, time in izip(node_list, times)))
+        if np.any(times < 0):
+            raise RuntimeError("error the mean first passage times are not all greater than zero")
+        return self.mfpt_dict
+
+        
 
     def compute_mfpt_subgroups(self, use_umfpack=True):
         for group in self.subgroups:
