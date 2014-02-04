@@ -174,12 +174,16 @@ class MfptLinalgSparse(object):
         self.node2i = node2i
         self.matrix =  matrix.tocsr()
     
-    def compute_mfpt(self, use_umfpack=True):
+    def compute_mfpt(self, use_umfpack=True, cg=False):
         if not hasattr(self, "matrix"):
             self.make_matrix(self.nodes - self.B)
         t0 = time.clock()
-        times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
-                                            use_umfpack=use_umfpack)
+        if cg:
+            times, info = scipy.sparse.linalg.cgs(self.matrix, -np.ones(self.matrix.shape[0]))
+            print "time to solve using conjugate gradient", time.clock() - t0
+        else:
+            times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
+                                                use_umfpack=use_umfpack)
         self.time_solve += time.clock() - t0
         self.mfpt_dict = dict(((node, time) for node, time in izip(self.node_list, times)))
         if np.any(times < 0):
@@ -187,6 +191,10 @@ class MfptLinalgSparse(object):
         return self.mfpt_dict
     
     def compute_mfpt_symmetric(self, Peq):
+        """make the matrix symmetric by multiplying both sides of the equation by Peq
+        
+            sum_v Peq_u k_uv = -Peq_u
+        """
         intermediates = self.nodes - self.B
         
         node_list = list(intermediates)
@@ -300,12 +308,17 @@ class TwoStateRates(object):
         else:
             return self.committor_dict[x]
     
-    def compute_rates(self, use_umfpack=True, subgroups=False):
+    def compute_rates(self, use_umfpack=True, subgroups=False, symmetric=False, Peq=None,
+                      cg=False):
         """compute the mean first passage times."""
+        if symmetric:
+            assert Peq is not None
+            self.mfptimes = self.mfpt_computer.compute_mfpt_symmetric(Peq)
+            return
         if subgroups:
             self.mfptimes = self.mfpt_computer.compute_mfpt_subgroups(use_umfpack=use_umfpack)
         else:
-            self.mfptimes = self.mfpt_computer.compute_mfpt(use_umfpack=use_umfpack)
+            self.mfptimes = self.mfpt_computer.compute_mfpt(use_umfpack=use_umfpack, cg=cg)
     
     def compute_committors(self):
         """compute the committors""" 

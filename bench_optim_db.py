@@ -113,6 +113,11 @@ if True:
     lin.compute_mfpt_symmetric(Peq)
     print "rate symetric", 1./lin.mfpt_dict[A[0]] / rate_norm
             
+if True:
+    print "computing rates using conjugant gradient method"
+    lin.compute_mfpt(cg=True)
+    print "rate cg", 1./lin.mfpt_dict[A[0]] / rate_norm
+            
 
 if True:
     print "computing committors and steady state rate constants"
