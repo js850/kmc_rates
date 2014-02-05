@@ -108,14 +108,17 @@ class EstimateRates(object):
                 if vroot == broot:
                     new_node = u
                 
-                # all nodes with root new_root are newly connected to the B nodes
+                # all nodes connected to new_node are newly connected to the B nodes
                 tsrate = self.rate_constants[(u,v)] * self.Peq[u]
                 if new_node not in graph:
                     graph.add_node(new_node)
                 nodes = nx.node_connected_component(graph, new_node)
+#                print len(nodes), "nodes connecting to B"
+                P = max([self.Peq[x] for x in nodes])
                 for x in nodes:
                     assert x not in rate_estimates
-                    rate_estimates[x] = tsrate * self.Peq[x]
+                    rate_estimates[x] = tsrate / P
+#                    rate_estimates[x] = tsrate / self.Peq[x]
                 
                 graph.remove_nodes_from(nodes)
             else:
