@@ -80,7 +80,7 @@ def find_nearest_neighbors(db, a, nmax=10, rates=None, Peq=None):
 
 def find_nearest_neighbors2(db, a, nmax=10, rates=None, Peq=None):
     if rates is None:
-        edges = [ (ts.minimum1, ts.minimum2) for ts in 
+        edges = [ (ts.minimum1, ts.minimum2, ts.energy) for ts in 
                  db.transition_states(order_energy=True)]
     else:
         edges = [((u,v), k*Peq[u]) for (u,v), k in 
@@ -93,7 +93,7 @@ def find_nearest_neighbors2(db, a, nmax=10, rates=None, Peq=None):
     subtrees[a]
     graph = nx.Graph()
     graph.add_node(a)
-    for u,v in edges:
+    for u,v, e in edges:
         uroot = subtrees[u]
         vroot = subtrees[v]
         if uroot != vroot:
@@ -101,14 +101,15 @@ def find_nearest_neighbors2(db, a, nmax=10, rates=None, Peq=None):
             graph.add_edge(u,v)
 #            graph.add_edge(u,v)
             if subtrees[u] == subtrees[a]:
+                print "energy", e, u._id, v._id
                 cc = nx.node_connected_component(graph, a)
                 if len(cc) >= nmax:
                     print "found a tree of sufficient size"
-                    return [m for m in cc]
+                    return cc
     print "finishing without having found a tree of sufficient size"
     cc = nx.node_connected_component(graph, a)
-    return [m for m in cc]
-    
+    return cc
+
 
 def read_minA(fname, db):
     """load data from min.A or min.B"""
@@ -189,10 +190,10 @@ if True:
 #            break
 #        newB.add(v)
         
-#    newA = find_nearest_neighbors2(db, amin, nmax=30)
-#    newB = find_nearest_neighbors2(db, bmin, nmax=100)
-    newA = find_nearest_neighbors2(db, amin, nmax=30, rates=rates, Peq=weights)
-    newB = find_nearest_neighbors2(db, bmin, nmax=100, rates=rates, Peq=weights)
+    newA = find_nearest_neighbors2(db, amin, nmax=30)
+    newB = find_nearest_neighbors2(db, bmin, nmax=100)
+#     newA = find_nearest_neighbors2(db, amin, nmax=30, rates=rates, Peq=weights)
+#     newB = find_nearest_neighbors2(db, bmin, nmax=100, rates=rates, Peq=weights)
     print "new A", len(newA)
     print [m._id for m in newA]
     print "new B", len(newB)
