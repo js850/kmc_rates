@@ -36,8 +36,8 @@ int main()
     builder.build_graph();
 
 
-    cout << G.number_of_nodes() << "\n";
-    cout << G.number_of_edges() << "\n";
+    cout << "number of nodes " << G.number_of_nodes() << "\n";
+    cout << "number of edges " << G.number_of_edges() << "\n";
 
     BreadthFirstSearchEdges bfs(&G, 0);
     edge_ptr e = bfs.get_next_edge();
@@ -52,5 +52,15 @@ int main()
     print_visitor visitor;
     BreadthFirstSearch<print_visitor> bfs1(G, 0, visitor);
     bfs1.run();
+
+    cout << "deleting node 0\n";
+    G.remove_node(0);
+    cout << "number of nodes " << G.number_of_nodes() << "\n";
+    cout << "number of edges " << G.number_of_edges() << "\n";
+    cout << "deleting node 1\n";
+    G.remove_node(1);
+    cout << "number of nodes " << G.number_of_nodes() << "\n";
+    cout << "number of edges " << G.number_of_edges() << "\n";
+
     
 }

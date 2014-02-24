@@ -36,12 +36,14 @@ public:
         id_(id)
     {}
 
-    void add_out_edge(edge_ptr edge);
+    void add_out_edge(edge_ptr edge){ out_edge_list_.insert(edge); }
+    void remove_out_edge(edge_ptr edge){ out_edge_list_.erase(edge); }
     edge_list & get_out_edges(){ return out_edge_list_; }
     edge_iterator out_edge_begin(){ return out_edge_list_.begin(); }
     edge_iterator out_edge_end(){ return out_edge_list_.end(); }
 
-    void add_in_edge(edge_ptr edge);
+    void add_in_edge(edge_ptr edge){ in_edge_list_.insert(edge); }
+    void remove_in_edge(edge_ptr edge){ in_edge_list_.erase(edge); }
     edge_list & get_in_edges(){ return in_edge_list_; }
     edge_iterator in_edge_begin(){ return in_edge_list_.begin(); }
     edge_iterator in_edge_end(){ return in_edge_list_.end(); }
@@ -66,14 +68,6 @@ public:
     node_ptr tail(){ return tail_; }
 };
 
-void Node::add_out_edge(edge_ptr edge)
-{
-    out_edge_list_.insert(edge);
-}
-void Node::add_in_edge(edge_ptr edge)
-{
-    in_edge_list_.insert(edge);
-}
 
 
 class Graph
@@ -155,13 +149,43 @@ public:
 
     /**
      * remove a node and all edges connecting it
+     */
     void remove_node(node_id nodeid)
     {
-        node_ptr node = get_node(nodeid);
-        node.clear()
+        node_ptr u = get_node(nodeid);
+        Node::edge_iterator eiter;
 
+        // remove the edges from the nodes connected to u
+        for (eiter = u->out_edge_begin(); eiter != u->out_edge_end(); ++eiter){
+            edge_ptr edge = *eiter;
+            edge->head()->remove_in_edge(edge);
+        }
+        for (eiter = u->in_edge_begin(); eiter != u->in_edge_end(); ++eiter){
+            edge_ptr edge = *eiter;
+            edge->tail()->remove_out_edge(edge);
+        }
+
+        Node::edge_list to_delete;
+        to_delete.insert(u->in_edge_begin(), u->in_edge_end());
+        to_delete.insert(u->out_edge_begin(), u->out_edge_end());
+
+        // remove the edges from the edge list
+        for (eiter = to_delete.begin(); eiter != to_delete.end(); ++eiter){
+            edge_ptr edge = *eiter;
+            edge_list_.erase(edge);
+        }
+
+        // remove the node from the node list
+        node_map_.erase(nodeid);
+
+        // deallocate the memory
+        for (eiter = to_delete.begin(); eiter != to_delete.end(); ++eiter){
+            edge_ptr edge = *eiter;
+            delete edge;
+        }
+
+        delete u;
     }
-     */
 
 };
 
