@@ -56,9 +56,9 @@ public:
         for (std::set<node_ptr>::iterator uiter = nodes.begin(); uiter != nodes.end(); ++uiter){
             node_ptr x = *uiter;
             double tau_x = 1. / sum_out_rates[x];
-            set_node_tau(x, tau_x);
+            set_tau(x, tau_x);
             edge_ptr xx = _graph._add_edge(x, x);
-            set_edge_P(xx, 0.);
+            set_P(xx, 0.);
         }
 
         // set Puv for each edge
@@ -71,7 +71,7 @@ public:
             edge_ptr uv = _graph._add_edge(u, v);
             double tau_u = get_tau(u);
             double Puv = k * tau_u;
-            set_edge_P(uv, Puv);
+            set_P(uv, Puv);
 
             try {
                 sum_out_rates.at(u) += k;
@@ -124,8 +124,8 @@ public:
     double get_node_P(node_ptr u){ return get_P(get_node_self_edge(u)); }
     double get_node_one_minus_P(node_ptr u){ return 1. - get_P(get_node_self_edge(u)); }
 
-    inline void set_node_tau(node_ptr u, double tau){ u->tau = tau; }
-    inline void set_edge_P(edge_ptr edge, double P){ edge->P = P; }
+    inline void set_tau(node_ptr u, double tau){ u->tau = tau; }
+    inline void set_P(edge_ptr edge, double P){ edge->P = P; }
 
     /*
      * node x is being deleted, so update P and tau for node u
@@ -138,12 +138,12 @@ public:
         if (debug){
             cout << "updating node " << u->id() << " tau " << tau_u << " -> " << new_tau_u << "\n";
         }
-        set_node_tau(u, new_tau_u);
+        set_tau(u, new_tau_u);
     }
 
     edge_ptr add_edge(node_ptr u, node_ptr v){
        edge_ptr edge = _graph._add_edge(u, v);
-       set_edge_P(edge, 0.);
+       set_P(edge, 0.);
        return edge;
     }
 
@@ -178,7 +178,7 @@ public:
                     << " Pxv " << Pxv
                     << "\n";
         }
-        set_edge_P(uv, newPuv);
+        set_P(uv, newPuv);
     }
 
     void remove_node(node_ptr x){
