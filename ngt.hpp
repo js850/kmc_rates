@@ -73,13 +73,41 @@ class NGT {
         set_node_tau(u, new_tau_u);
     }
 
-    //void update_edge(edge_ptr uv, ){
-        //double newPux = Pux * tau_x / omPxx;
-    //}
+    edge_ptr add_edge(node_ptr u, node_ptr v){
+       edge_ptr edge = _graph._add_edge(u, v);
+       set_edge_P(edge, 0.);
+       return edge;
+    }
+
+//    edge_ptr get_edge(node_ptr u, node_ptr v){
+//        double edge = u->get_successor_edge(v);
+//        if (edge == NULL){
+//            edge = v->get_successor_edge(u);
+//        }
+//        return edge;
+//    }
+
+    void update_edge(node_ptr u, node_ptr v, node_ptr x, edge_ptr ux, double omPxx){
+        edge_ptr xv = x->get_successor_edge(v);
+        if (ux == NULL || xv == NULL){
+            // no need to do anything if either of these don't exist
+            return;
+        }
+        edge_ptr uv = u->get_successor_edge(v);
+        if (uv == NULL){
+            uv = add_edge(u, v);
+        }
+
+        double Pux = get_edge_P(ux);
+        double Pxv = get_edge_P(xv);
+
+        double newPux = Pux + Pux * Pxv / omPxx;
+        set_edge_P(ux, newPux);
+    }
 
     void remove_node(node_ptr x){
         double taux = get_node_tau(x);
-        double Pxx = get_node_P(x);
+//        double Pxx = get_node_P(x);
         double omPxx = get_node_one_minus_P(x);
 
         // update the node data for all the neighbors
@@ -91,30 +119,17 @@ class NGT {
 
         std::set<node_ptr> neibs = x->in_out_neighbors();
         neibs.erase(x);
-        std::set<std::pair<node_ptr, node_ptr> > edges;
-        // make a set of all the edges that should be present
+
+        //
         for (std::set<node_ptr>::iterator uiter = neibs.begin(); uiter != neibs.end(); ++uiter){
             node_ptr u = *uiter;
+            edge_ptr ux = u->get_successor_edge(x);
+            if (ux == NULL) continue;
             for (std::set<node_ptr>::iterator viter = neibs.begin(); viter != neibs.end(); ++viter){
                 node_ptr v = *viter;
-                edges.insert(std::pair<node_ptr, node_ptr>(u, v));
+                update_edge(u, v, x, ux, omPxx);
             }
         }
-
-        /*
-        // now loop through all the edges that are present
-        for (std::set<node_ptr>::iterator uiter = neibs.begin(); uiter != neibs.end(); ++uiter){
-            node_ptr u = *uiter;
-            for (eiter = u->in_edge_begin(); eiter != u->in_edge_end(); eiter++){
-                edge_ptr uv = *eiter;
-                node_ptr v = uv->head();
-                edges.erase(std::pair<node_ptr, node_ptr>(u, v));
-                update_edge(uv);
-            }
-        }
-
-        // for each edge remaining in edges, first add the edge then update it
-        */
 
     }
 

@@ -20,43 +20,6 @@ color_type color_grey = 1;
 color_type color_black = 4;
 
 /**
- * basic class for a node in the graph
- */
-class Node{
-public:
-    typedef std::set<edge_ptr> edge_list;
-    typedef typename edge_list::iterator edge_iterator;
-private:
-    node_id id_;
-    edge_list out_edge_list_; // list of outgoing edges
-    edge_list in_edge_list_; // list of outgoing edges
-public:
-    double tau;
-
-    Node(node_id id):
-        id_(id)
-    {}
-
-    void add_out_edge(edge_ptr edge){ out_edge_list_.insert(edge); }
-    void remove_out_edge(edge_ptr edge){ out_edge_list_.erase(edge); }
-    edge_list & get_out_edges(){ return out_edge_list_; }
-    edge_iterator out_edge_begin(){ return out_edge_list_.begin(); }
-    edge_iterator out_edge_end(){ return out_edge_list_.end(); }
-
-    void add_in_edge(edge_ptr edge){ in_edge_list_.insert(edge); }
-    void remove_in_edge(edge_ptr edge){ in_edge_list_.erase(edge); }
-    edge_list & get_in_edges(){ return in_edge_list_; }
-    edge_iterator in_edge_begin(){ return in_edge_list_.begin(); }
-    edge_iterator in_edge_end(){ return in_edge_list_.end(); }
-
-    node_id id() const { return id_; }
-    size_t out_degree() const { return out_edge_list_.size(); }
-    size_t in_degree() const { return in_edge_list_.size(); }
-    size_t in_out_degree() const { return out_degree() + in_degree(); }
-    std::set<node_ptr> in_out_neighbors();
-};
-
-/**
  * basic class for an edge (arc) in the graph
  */
 class Edge{
@@ -72,6 +35,61 @@ public:
 
     node_ptr head(){ return head_; }
     node_ptr tail(){ return tail_; }
+};
+
+/**
+ * basic class for a node in the graph
+ */
+class Node{
+public:
+    typedef std::set<edge_ptr> edge_list;
+    typedef typename edge_list::iterator edge_iterator;
+    typedef std::map<node_ptr, edge_ptr> successor_map_t;
+private:
+    node_id id_;
+    edge_list out_edge_list_; // list of outgoing edges
+    edge_list in_edge_list_; // list of outgoing edges
+
+
+public:
+    successor_map_t successor_map_;
+    double tau;
+
+    Node(node_id id):
+        id_(id)
+    {}
+
+    void add_out_edge(edge_ptr edge){
+        out_edge_list_.insert(edge);
+        successor_map_[edge->head()] = edge;
+    }
+    void remove_out_edge(edge_ptr edge){
+        out_edge_list_.erase(edge);
+        successor_map_.erase(edge->head());
+    }
+    edge_list & get_out_edges(){ return out_edge_list_; }
+    edge_iterator out_edge_begin(){ return out_edge_list_.begin(); }
+    edge_iterator out_edge_end(){ return out_edge_list_.end(); }
+
+    void add_in_edge(edge_ptr edge){ in_edge_list_.insert(edge); }
+    void remove_in_edge(edge_ptr edge){ in_edge_list_.erase(edge); }
+    edge_list & get_in_edges(){ return in_edge_list_; }
+    edge_iterator in_edge_begin(){ return in_edge_list_.begin(); }
+    edge_iterator in_edge_end(){ return in_edge_list_.end(); }
+
+    node_id id() const { return id_; }
+    size_t out_degree() const { return out_edge_list_.size(); }
+    size_t in_degree() const { return in_edge_list_.size(); }
+    size_t in_out_degree() const { return out_degree() + in_degree(); }
+    std::set<node_ptr> in_out_neighbors();
+    edge_ptr get_successor_edge(node_ptr v){
+        successor_map_t::iterator miter = successor_map_.find(v);
+        if (miter == successor_map_.end()){
+            return NULL;
+        } else{
+            return miter->second;
+        }
+    }
 };
 
 std::set<node_ptr> Node::in_out_neighbors() {
@@ -156,14 +174,17 @@ public:
     /**
      * add an edge from tail to head
      */
-    void add_edge(node_id tail, node_id head)
+    edge_ptr add_edge(node_id tail, node_id head)
     {
-        node_ptr node_tail = get_node(tail);
-        node_ptr node_head = get_node(head);
+        return _add_edge(get_node(tail), get_node(head));
+    }
+    edge_ptr _add_edge(node_ptr node_tail, node_ptr node_head)
+    {
         edge_ptr edge = new Edge(node_tail, node_head);
         edge_list_.insert(edge);
         node_tail->add_out_edge(edge);
         node_head->add_in_edge(edge);
+        return edge;
     }
 
     /**
