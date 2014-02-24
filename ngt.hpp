@@ -66,7 +66,7 @@ public:
             double k = iter->second;
 
             edge_ptr uv = _graph._add_edge(u, v);
-            double tau_u = get_node_tau(u);
+            double tau_u = get_tau(u);
             double Puv = k * tau_u;
             set_edge_P(uv, Puv);
 
@@ -113,8 +113,8 @@ public:
         }
     }
     
-    inline double get_node_tau(node_ptr u){ return u->tau; }
-    inline double get_edge_P(edge_ptr edge){ return edge->P; }
+    inline double get_tau(node_ptr u){ return u->tau; }
+    inline double get_P(edge_ptr edge){ return edge->P; }
     edge_ptr get_node_self_edge(node_ptr u){ 
         Node::edge_iterator eiter;
         for (eiter = u->out_edge_begin(); eiter != u->out_edge_end(); eiter++){
@@ -123,8 +123,8 @@ public:
         }
         throw std::runtime_error("no edge connecting itself"); 
     }
-    double get_node_P(node_ptr u){ return get_edge_P(get_node_self_edge(u)); }
-    double get_node_one_minus_P(node_ptr u){ return 1. - get_edge_P(get_node_self_edge(u)); }
+    double get_node_P(node_ptr u){ return get_P(get_node_self_edge(u)); }
+    double get_node_one_minus_P(node_ptr u){ return 1. - get_P(get_node_self_edge(u)); }
 
     inline void set_node_tau(node_ptr u, double tau){ u->tau = tau; }
     inline void set_edge_P(edge_ptr edge, double P){ edge->P = P; }
@@ -134,8 +134,8 @@ public:
      */
     void update_tau(edge_ptr ux, double omPxx, double taux){
         node_ptr u = ux->tail();
-        double Pux = get_edge_P(ux);
-        double tau_u = get_node_tau(u);
+        double Pux = get_P(ux);
+        double tau_u = get_tau(u);
         double new_tau_u = tau_u + Pux * taux / omPxx; 
         set_node_tau(u, new_tau_u);
     }
@@ -165,15 +165,15 @@ public:
             uv = add_edge(u, v);
         }
 
-        double Pux = get_edge_P(ux);
-        double Pxv = get_edge_P(xv);
+        double Pux = get_P(ux);
+        double Pxv = get_P(xv);
 
         double newPux = Pux + Pux * Pxv / omPxx;
         set_edge_P(ux, newPux);
     }
 
     void remove_node(node_ptr x){
-        double taux = get_node_tau(x);
+        double taux = get_tau(x);
 //        double Pxx = get_node_P(x);
         double omPxx = get_node_one_minus_P(x);
 
@@ -206,7 +206,7 @@ public:
 
             node_ptr x = intermediates.front();
             intermediates.pop_front();
-            std::cout << "removing node" << x->id() << "\n";
+            std::cout << "removing node " << x->id() << "\n";
 
             remove_node(x);
         }
