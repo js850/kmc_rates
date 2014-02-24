@@ -27,19 +27,37 @@ public:
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
     bool debug;
+    bool own_graph;
 
     
     ~NGT()
     {
-        if (_graph != NULL){
+        if (own_graph && _graph != NULL){
             delete _graph;
             _graph = NULL;
         }
     }
 
+    NGT(Graph & graph, std::set<node_ptr> &A, std::set<node_ptr> &B) :
+        _graph(& graph),
+        _A(A.begin(), A.end()),
+        _B(B.begin(), B.end()),
+        debug(false),
+        own_graph(false)
+    {
+    	// make intermediates
+    	for (Graph::node_map_t::iterator miter = _graph->node_map_.begin(); miter != _graph->node_map_.end(); ++miter){
+    		node_ptr u = miter->second;
+    		if (_A.find(u) == _A.end() and _B.find(u) == _B.end()){
+    			intermediates.push_back(u);
+    		}
+    	}
+    }
+
     NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B) :
         _graph(new Graph()),
-        debug(false)
+        debug(false),
+        own_graph(true)
     {
         std::set<node_ptr> nodes;
 

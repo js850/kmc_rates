@@ -33,7 +33,6 @@ int main()
     node_ptr a = ngt._graph->get_node(0);
     node_ptr b = ngt._graph->get_node(1);
     edge_ptr ab = a->get_successor_edge(b);
-    edge_ptr ba = b->get_successor_edge(a);
 
     double tau_a = ngt.get_tau(a);
     double Paa = ngt.get_node_P(a);
@@ -53,4 +52,6 @@ int main()
     cout << "Pab " << Pab << "\n";
     cout << "rate A -> B " << ngt.get_rate_AB() << "\n";
     cout << "rate B -> A " << ngt.get_rate_BA() << "\n";
+
+    NGT ngt2(*ngt._graph, ngt._A, ngt._B);
 }
