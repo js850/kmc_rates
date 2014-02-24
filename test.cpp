@@ -32,7 +32,7 @@ int main()
 {
     Graph G = Graph();
 
-    auto builder = graph_ns::BuildGridGraph2d(G, 3, 4, true);
+    graph_ns::BuildGridGraph2d builder = graph_ns::BuildGridGraph2d(G, 3, 4, true);
     builder.build_graph();
 
 

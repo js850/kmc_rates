@@ -24,6 +24,7 @@ color_type color_black = 4;
 class Node{
 public:
     typedef std::list<Edge *> out_edge_list;
+    typedef typename out_edge_list::iterator edge_iterator;
 private:
     node_id id_;
     out_edge_list out_edge_list_; // list of outgoing edges
@@ -37,6 +38,8 @@ public:
 
     void add_out_edge(Edge * edge);
     out_edge_list & get_out_edges(){ return out_edge_list_; }
+    edge_iterator out_edge_begin(){ return out_edge_list_.begin(); }
+    edge_iterator out_edge_end(){ return out_edge_list_.end(); }
     node_id id() const { return id_; }
 };
 

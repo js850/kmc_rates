@@ -37,8 +37,8 @@ class BreadthFirstSearch
     std::vector<color_type> node_color;
     std::queue<node_ptr> node_queue_;
 
-    unsigned long Nedges = 0;
-    unsigned long Nnodes = 0;
+    unsigned long Nedges;
+    unsigned long Nnodes;
 
     bfsvisitor & vis;
 
@@ -46,6 +46,7 @@ public:
     BreadthFirstSearch(Graph & graph, node_id n, bfsvisitor & visitor):
         graph_(graph),
         node_color(graph_.number_of_nodes(), color_white),
+        Nedges(0), Nnodes(0),
         vis(visitor)
     {
         // add the first node to the queue
@@ -59,12 +60,14 @@ public:
 
     void run(){
         while (! node_queue_.empty() ){
-            auto node = node_queue_.front();             
+            node_ptr node = node_queue_.front();             
             vis.examine_node(node, graph_);            
             node_queue_.pop();
-            for (auto edge: node->get_out_edges()){      
+            Node::out_edge_list::iterator eiter;
+            for (eiter = node->out_edge_begin(); eiter != node->out_edge_end(); eiter++){
+                edge_ptr edge = *eiter;
                 vis.examine_edge(edge, graph_);
-                auto u = edge->head();
+                node_ptr u = edge->head();
                 if (node_color[u->id()] == color_white){ 
                     vis.tree_edge(edge, graph_);
                     vis.discover_node(u, graph_);
