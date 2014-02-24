@@ -10,6 +10,8 @@
 
 #include "graph.hpp"
 
+using std::cout;
+
 namespace graph_ns
 {
 
@@ -18,11 +20,14 @@ bool compare_degree(node_ptr u, node_ptr v){
 }
 
 class NGT {
+public:
     Graph _graph;
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
 
-    NGT(std::map<std::pair<node_id, node_id>, double> rate_constants, std::vector<node_id> A, std::vector<node_id> B)
+    typedef std::map<std::pair<node_id, node_id>, double> rate_map_t;
+
+    NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B)
     {
         std::set<node_ptr> nodes;
 
@@ -82,9 +87,21 @@ class NGT {
         }
 
         // make a list of intermediates
-        nodes.erase(_A.begin(), _A.end());
-        nodes.erase(_B.begin(), _B.end());
-        intermediates.insert(intermediates.begin(), nodes.begin(), nodes.end());
+        for (std::set<node_ptr>::iterator uiter = _A.begin(); uiter != _A.end(); ++uiter){
+            nodes.erase(*uiter);
+        }
+        for (std::set<node_ptr>::iterator uiter = _B.begin(); uiter != _B.end(); ++uiter){
+            nodes.erase(*uiter);
+        }
+        intermediates.assign(nodes.begin(), nodes.end());
+
+
+//        cout << _graph.number_of_nodes() << "\n";
+//        cout << _A.size() << "\n";
+//        cout << _B.size() << "\n";
+//        cout << intermediates.size() << "\n";
+//        cout << nodes.size() << "\n";
+        assert(intermediates.size() + _A.size() + _B.size() == _graph.number_of_nodes());
 
 
     }
@@ -187,7 +204,9 @@ class NGT {
         while (intermediates.size() > 0){
             sort_intermediates();
 
-            node_ptr x = *intermediates.begin();
+            node_ptr x = intermediates.front();
+            intermediates.pop_front();
+            std::cout << "removing node" << x->id() << "\n";
 
             remove_node(x);
         }
