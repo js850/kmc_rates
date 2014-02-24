@@ -111,7 +111,10 @@ public:
 
     void sort_intermediates(){
         node_ptr x = *intermediates.begin();
-        if (x->in_out_degree() > 2) {
+        if (debug){
+            cout << "smallest node degree " << x->in_out_degree() << "\n";
+        }
+        if (x->in_out_degree() > 4) {
             intermediates.sort(compare_degree);
         }
     }
@@ -121,8 +124,8 @@ public:
     edge_ptr get_node_self_edge(node_ptr u){ 
         return u->get_successor_edge(u);
     }
-    double get_node_P(node_ptr u){ return get_P(get_node_self_edge(u)); }
-    double get_node_one_minus_P(node_ptr u){ return 1. - get_P(get_node_self_edge(u)); }
+    double get_node_P(node_ptr u){ return get_P(u->get_successor_edge(u)); }
+    double get_node_one_minus_P(node_ptr u){ return 1. - get_P(u->get_successor_edge(u)); }
 
     inline void set_tau(node_ptr u, double tau){ u->tau = tau; }
     inline void set_P(edge_ptr edge, double P){ edge->P = P; }
@@ -221,6 +224,21 @@ public:
 
             remove_node(x);
         }
+    }
+
+    double get_rate_AB(){
+        assert(_A.size() == 1);
+        node_ptr a = *_A.begin();
+        double PaB = get_node_one_minus_P(a);
+        double tau_a = get_tau(a);
+        return PaB / tau_a;
+    }
+    double get_rate_BA(){
+        assert(_B.size() == 1);
+        node_ptr b = *_B.begin();
+        double PbA = get_node_one_minus_P(b);
+        double tau_b = get_tau(b);
+        return PbA / tau_b;
     }
 
 
