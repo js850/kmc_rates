@@ -23,13 +23,22 @@ class NGT {
 public:
     typedef std::map<std::pair<node_id, node_id>, double> rate_map_t;
 
-    Graph _graph;
+    Graph * _graph;
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
     bool debug;
 
+    
+    ~NGT()
+    {
+        if (_graph != NULL){
+            delete _graph;
+            _graph = NULL;
+        }
+    }
 
     NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B) :
+        _graph(new Graph()),
         debug(false)
     {
         std::set<node_ptr> nodes;
@@ -38,8 +47,8 @@ public:
         std::map<node_ptr, double> sum_out_rates;
         typedef std::map<std::pair<node_id, node_id>, double> maptype;
         for (maptype::iterator iter = rate_constants.begin(); iter != rate_constants.end(); ++iter){
-            node_ptr u = _graph.add_node(iter->first.first);
-            node_ptr v = _graph.add_node(iter->first.second);
+            node_ptr u = _graph->add_node(iter->first.first);
+            node_ptr v = _graph->add_node(iter->first.second);
             double k = iter->second;
             nodes.insert(u);
             nodes.insert(v);
@@ -57,18 +66,18 @@ public:
             node_ptr x = *uiter;
             double tau_x = 1. / sum_out_rates[x];
             set_tau(x, tau_x);
-            edge_ptr xx = _graph._add_edge(x, x);
+            edge_ptr xx = _graph->_add_edge(x, x);
             set_P(xx, 0.);
         }
 
         // set Puv for each edge
         typedef std::map<std::pair<node_id, node_id>, double> maptype;
         for (maptype::iterator iter = rate_constants.begin(); iter != rate_constants.end(); ++iter){
-            node_ptr u = _graph.get_node(iter->first.first);
-            node_ptr v = _graph.get_node(iter->first.second);
+            node_ptr u = _graph->get_node(iter->first.first);
+            node_ptr v = _graph->get_node(iter->first.second);
             double k = iter->second;
 
-            edge_ptr uv = _graph._add_edge(u, v);
+            edge_ptr uv = _graph->_add_edge(u, v);
             double tau_u = get_tau(u);
             double Puv = k * tau_u;
             set_P(uv, Puv);
@@ -83,10 +92,10 @@ public:
 
         // make the set of A and B
         for (std::vector<node_id>::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
-            _A.insert(_graph.get_node(*node_iter));
+            _A.insert(_graph->get_node(*node_iter));
         }
         for (std::vector<node_id>::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
-            _B.insert(_graph.get_node(*node_iter));
+            _B.insert(_graph->get_node(*node_iter));
         }
 
         // make a list of intermediates
@@ -99,12 +108,12 @@ public:
         intermediates.assign(nodes.begin(), nodes.end());
 
 
-//        cout << _graph.number_of_nodes() << "\n";
+//        cout << _graph->number_of_nodes() << "\n";
 //        cout << _A.size() << "\n";
 //        cout << _B.size() << "\n";
 //        cout << intermediates.size() << "\n";
 //        cout << nodes.size() << "\n";
-        assert(intermediates.size() + _A.size() + _B.size() == _graph.number_of_nodes());
+        assert(intermediates.size() + _A.size() + _B.size() == _graph->number_of_nodes());
 
 
     }
@@ -145,18 +154,10 @@ public:
     }
 
     edge_ptr add_edge(node_ptr u, node_ptr v){
-       edge_ptr edge = _graph._add_edge(u, v);
+       edge_ptr edge = _graph->_add_edge(u, v);
        set_P(edge, 0.);
        return edge;
     }
-
-//    edge_ptr get_edge(node_ptr u, node_ptr v){
-//        double edge = u->get_successor_edge(v);
-//        if (edge == NULL){
-//            edge = v->get_successor_edge(u);
-//        }
-//        return edge;
-//    }
 
     void update_edge(node_ptr u, node_ptr v, node_ptr x, edge_ptr ux, double omPxx){
         edge_ptr xv = x->get_successor_edge(v);
@@ -224,6 +225,10 @@ public:
 
             remove_node(x);
         }
+    }
+
+    void phase_one(){
+    	remove_intermediates();
     }
 
     double get_rate_AB(){

@@ -30,8 +30,8 @@ int main()
 
     NGT ngt(rates, A, B);
     ngt.debug = true;
-    node_ptr a = ngt._graph.get_node(0);
-    node_ptr b = ngt._graph.get_node(1);
+    node_ptr a = ngt._graph->get_node(0);
+    node_ptr b = ngt._graph->get_node(1);
     edge_ptr ab = a->get_successor_edge(b);
     edge_ptr ba = b->get_successor_edge(a);
 
