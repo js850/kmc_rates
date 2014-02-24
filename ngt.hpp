@@ -21,13 +21,16 @@ bool compare_degree(node_ptr u, node_ptr v){
 
 class NGT {
 public:
+    typedef std::map<std::pair<node_id, node_id>, double> rate_map_t;
+
     Graph _graph;
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
+    bool debug;
 
-    typedef std::map<std::pair<node_id, node_id>, double> rate_map_t;
 
-    NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B)
+    NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B) :
+        debug(false)
     {
         std::set<node_ptr> nodes;
 
@@ -52,7 +55,7 @@ public:
         // add edge Pxx for each node and initialize P to 0.
         for (std::set<node_ptr>::iterator uiter = nodes.begin(); uiter != nodes.end(); ++uiter){
             node_ptr x = *uiter;
-            double tau_x = sum_out_rates[x];
+            double tau_x = 1. / sum_out_rates[x];
             set_node_tau(x, tau_x);
             edge_ptr xx = _graph._add_edge(x, x);
             set_edge_P(xx, 0.);
@@ -116,12 +119,7 @@ public:
     inline double get_tau(node_ptr u){ return u->tau; }
     inline double get_P(edge_ptr edge){ return edge->P; }
     edge_ptr get_node_self_edge(node_ptr u){ 
-        Node::edge_iterator eiter;
-        for (eiter = u->out_edge_begin(); eiter != u->out_edge_end(); eiter++){
-            node_ptr v = (*eiter)->head();
-            if (u == v) return *eiter;
-        }
-        throw std::runtime_error("no edge connecting itself"); 
+        return u->get_successor_edge(u);
     }
     double get_node_P(node_ptr u){ return get_P(get_node_self_edge(u)); }
     double get_node_one_minus_P(node_ptr u){ return 1. - get_P(get_node_self_edge(u)); }
@@ -132,11 +130,14 @@ public:
     /*
      * node x is being deleted, so update P and tau for node u
      */
-    void update_tau(edge_ptr ux, double omPxx, double taux){
+    void update_tau(edge_ptr ux, double omPxx, double tau_x){
         node_ptr u = ux->tail();
         double Pux = get_P(ux);
         double tau_u = get_tau(u);
-        double new_tau_u = tau_u + Pux * taux / omPxx; 
+        double new_tau_u = tau_u + Pux * tau_x / omPxx;
+        if (debug){
+            cout << "updating node " << u->id() << " tau " << tau_u << " -> " << new_tau_u << "\n";
+        }
         set_node_tau(u, new_tau_u);
     }
 
@@ -167,9 +168,17 @@ public:
 
         double Pux = get_P(ux);
         double Pxv = get_P(xv);
+        double Puv = get_P(uv);
 
-        double newPux = Pux + Pux * Pxv / omPxx;
-        set_edge_P(ux, newPux);
+        double newPuv = Puv + Pux * Pxv / omPxx;
+        if (debug) {
+            cout << "updating edge " << u->id() << " -> " << v->id() << " Puv " << Puv << " -> " << newPuv
+                    << " 1-Pxx " << omPxx
+                    << " Pux " << Pux
+                    << " Pxv " << Pxv
+                    << "\n";
+        }
+        set_edge_P(uv, newPuv);
     }
 
     void remove_node(node_ptr x){
@@ -181,7 +190,9 @@ public:
         Node::edge_iterator eiter;
         for (eiter = x->in_edge_begin(); eiter != x->in_edge_end(); eiter++){
             edge_ptr edge = *eiter;
-            update_tau(edge, omPxx, taux);
+            if (edge->tail() != edge->head()){
+                update_tau(edge, omPxx, taux);
+            }
         }
 
         std::set<node_ptr> neibs = x->in_out_neighbors();
