@@ -63,7 +63,7 @@ public:
             node_ptr node = node_queue_.front();             
             vis.examine_node(node, graph_);            
             node_queue_.pop();
-            Node::out_edge_list::iterator eiter;
+            Node::edge_iterator eiter;
             for (eiter = node->out_edge_begin(); eiter != node->out_edge_end(); eiter++){
                 edge_ptr edge = *eiter;
                 vis.examine_edge(edge, graph_);
@@ -89,8 +89,8 @@ class BreadthFirstSearchEdges
     std::queue<node_ptr> node_queue_;
 
     // these hold the current state of the iteration
-    Node::out_edge_list::iterator edge_iter_;
-    Node::out_edge_list * edge_list;
+    Node::edge_iterator edge_iter_;
+    Node::edge_list * edge_list;
 
     unsigned long Nedges;
     unsigned long Nnodes;
