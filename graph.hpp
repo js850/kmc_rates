@@ -6,6 +6,9 @@
 #include <list>
 #include <map>
 #include <set>
+#include <assert.h>
+#include <stdexcept>
+
 
 namespace graph_ns
 {
@@ -141,12 +144,29 @@ public:
     /**
      * create a new node
      */
-    node_id add_node(){
+    node_ptr add_node(){
         node_ptr node = new Node(next_node_id_);
         next_node_id_++;
         node_map_.insert(std::pair<node_id, node_ptr> (node->id(), node));
-        return node->id();
+        return node;
     }
+
+    node_ptr add_node(node_id nodeid){
+        node_ptr node = NULL;
+        try {
+            node = node_map_.at(nodeid);
+            return node;
+        } catch (std::out_of_range & e) {
+            node = new Node(nodeid);
+        }
+
+        if (next_node_id_ < nodeid){
+            next_node_id_ = nodeid + 1;
+        }
+        node_map_[node->id()] = node;
+        return node;
+    }
+
 
     /**
      * create a n new nodes

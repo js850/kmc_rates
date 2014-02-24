@@ -18,30 +18,80 @@ bool compare_degree(node_ptr u, node_ptr v){
 }
 
 class NGT {
-    Graph & _graph;
+    Graph _graph;
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
 
-    /*
-    NGT(Graph & graph, std::vector<node_id> A, std::vector<node_id> B) :
-        _graph(graph)
+    NGT(std::map<std::pair<node_id, node_id>, double> rate_constants, std::vector<node_id> A, std::vector<node_id> B)
     {
-        for (std::vector<node_id>::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
-            _A.insert(graph.get_node(*node_iter));
-        }
-        for (std::vector<node_id>::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
-            _B.insert(graph.get_node(*node_iter));
+        std::set<node_ptr> nodes;
+
+        // add nodes to the graph and sum the rate constants for all out edges for each node.
+        std::map<node_ptr, double> sum_out_rates;
+        typedef std::map<std::pair<node_id, node_id>, double> maptype;
+        for (maptype::iterator iter = rate_constants.begin(); iter != rate_constants.end(); ++iter){
+            node_ptr u = _graph.add_node(iter->first.first);
+            node_ptr v = _graph.add_node(iter->first.second);
+            double k = iter->second;
+            nodes.insert(u);
+            nodes.insert(v);
+
+            try {
+                sum_out_rates.at(u) += k;
+            } catch (std::out_of_range & e) {
+                sum_out_rates[u] = k;
+            }
         }
 
-        for (Graph::node_map_t::iterator miter = graph.node_map_.begin(); miter != graph.node_map_.end(); ++miter){
-            node_ptr u = miter->second;
+        // set tau_x for each node
+        // add edge Pxx for each node and initialize P to 0.
+        for (std::set<node_ptr>::iterator uiter = nodes.begin(); uiter != nodes.end(); ++uiter){
+            node_ptr x = *uiter;
+            double tau_x = sum_out_rates[x];
+            set_node_tau(x, tau_x);
+            edge_ptr xx = _graph._add_edge(x, x);
+            set_edge_P(xx, 0.);
         }
+
+        // set Puv for each edge
+        typedef std::map<std::pair<node_id, node_id>, double> maptype;
+        for (maptype::iterator iter = rate_constants.begin(); iter != rate_constants.end(); ++iter){
+            node_ptr u = _graph.get_node(iter->first.first);
+            node_ptr v = _graph.get_node(iter->first.second);
+            double k = iter->second;
+
+            edge_ptr uv = _graph._add_edge(u, v);
+            double tau_u = get_node_tau(u);
+            double Puv = k * tau_u;
+            set_edge_P(uv, Puv);
+
+            try {
+                sum_out_rates.at(u) += k;
+            } catch (std::out_of_range & e) {
+                sum_out_rates[u] = k;
+            }
+        }
+
+
+        // make the set of A and B
+        for (std::vector<node_id>::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
+            _A.insert(_graph.get_node(*node_iter));
+        }
+        for (std::vector<node_id>::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
+            _B.insert(_graph.get_node(*node_iter));
+        }
+
+        // make a list of intermediates
+        nodes.erase(_A.begin(), _A.end());
+        nodes.erase(_B.begin(), _B.end());
+        intermediates.insert(intermediates.begin(), nodes.begin(), nodes.end());
+
+
     }
-    */
 
     void sort_intermediates(){
         node_ptr x = *intermediates.begin();
-        if (x->in_out_degree() > 1) {
+        if (x->in_out_degree() > 2) {
             intermediates.sort(compare_degree);
         }
     }
