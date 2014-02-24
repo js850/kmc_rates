@@ -212,9 +212,12 @@ public:
     /**
      * remove a node and all edges connecting it
      */
-    void remove_node(node_id nodeid)
+    void remove_node(node_id nodeid){
+        return _remove_node(get_node(nodeid));
+    }
+
+    void _remove_node(node_ptr u)
     {
-        node_ptr u = get_node(nodeid);
         Node::edge_iterator eiter;
 
         // remove the edges from the nodes connected to u
@@ -238,7 +241,7 @@ public:
         }
 
         // remove the node from the node list
-        node_map_.erase(nodeid);
+        node_map_.erase(u->id());
 
         // deallocate the memory
         for (eiter = to_delete.begin(); eiter != to_delete.end(); ++eiter){

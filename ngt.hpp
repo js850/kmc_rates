@@ -29,6 +29,9 @@ public:
     bool debug;
     bool own_graph;
 
+    std::map<node_id, double> final_omPxx;
+    std::map<node_id, double> final_tau;
+
     
     ~NGT()
     {
@@ -38,13 +41,19 @@ public:
         }
     }
 
-    NGT(Graph & graph, std::set<node_ptr> &A, std::set<node_ptr> &B) :
+    template<class Acontainer, class Bcontainer>
+    NGT(Graph & graph, Acontainer &A, Bcontainer &B) :
         _graph(& graph),
-        _A(A.begin(), A.end()),
-        _B(B.begin(), B.end()),
         debug(false),
         own_graph(false)
     {
+    	for (typename Acontainer::iterator iter = A.begin(); iter != A.end(); ++iter){
+    		_A.insert(_graph->get_node(*iter));
+    	}
+    	for (typename Bcontainer::iterator iter = B.begin(); iter != B.end(); ++iter){
+    		_B.insert(_graph->get_node(*iter));
+    	}
+
     	// make intermediates
     	for (Graph::node_map_t::iterator miter = _graph->node_map_.begin(); miter != _graph->node_map_.end(); ++miter){
     		node_ptr u = miter->second;
@@ -52,6 +61,13 @@ public:
     			intermediates.push_back(u);
     		}
     	}
+
+		cout << "number of nodes " << _graph->number_of_nodes() << "\n";
+		cout << "A.size() " << _A.size() << "\n";
+		cout << "B.size() " << _B.size() << "\n";
+		cout << "intermediates.size() " << intermediates.size() << "\n";
+		assert(intermediates.size() + _A.size() + _B.size() == _graph->number_of_nodes());
+
     }
 
     NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B) :
@@ -231,6 +247,9 @@ public:
             }
         }
 
+        // remove the node from the graph
+        _graph->_remove_node(x);
+
     }
 
     void remove_intermediates(){
@@ -249,12 +268,39 @@ public:
     	remove_intermediates();
     }
 
+    void reduce_all_in_group(std::set<node_ptr> &to_remove, std::set<node_ptr> & to_keep){
+    	std::set<node_id> Aids, Bids;
+    	for (std::set<node_ptr>::iterator iter = to_remove.begin(); iter != to_remove.end(); ++iter){
+    		Aids.insert((*iter)->id());
+    	}
+    	for (std::set<node_ptr>::iterator iter = to_keep.begin(); iter != to_keep.end(); ++iter){
+    		Bids.insert((*iter)->id());
+    	}
+    	for (std::set<node_id>::iterator iter = Aids.begin(); iter != Aids.end(); ++iter){
+    		node_id x = *iter;
+    		std::set<node_id> newAids;
+    		newAids.insert(x);
+
+    		Graph new_graph(*_graph);
+    		NGT new_ngt(new_graph, newAids, Bids);
+    		new_ngt.remove_intermediates();
+    		node_ptr xptr = new_graph.get_node(x);
+    		final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
+    		final_tau[x] = new_ngt.get_tau(xptr);
+    	}
+    }
+
+    void phase_two(){
+    	reduce_all_in_group(_A, _B);
+    	reduce_all_in_group(_B, _A);
+    }
+
     double get_rate_AB(){
         assert(_A.size() == 1);
         node_ptr a = *_A.begin();
-        double PaB = get_node_one_minus_P(a);
-        double tau_a = get_tau(a);
-        return PaB / tau_a;
+        double omPxx = final_omPxx.at(a->id());
+        double tau_a = final_tau.at(a->id());
+        return omPxx / tau_a;
     }
 
     double get_rate_BA(){

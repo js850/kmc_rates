@@ -41,7 +41,8 @@ int main()
     cout << "a P " << Paa << "\n";
     cout << "ab P " << Pab << "\n";
 
-    ngt.remove_intermediates();
+    ngt.phase_one();
+    ngt.phase_two();
 
 
     tau_a = ngt.get_tau(a);
@@ -53,5 +54,4 @@ int main()
     cout << "rate A -> B " << ngt.get_rate_AB() << "\n";
     cout << "rate B -> A " << ngt.get_rate_BA() << "\n";
 
-    NGT ngt2(*ngt._graph, ngt._A, ngt._B);
 }
