@@ -5,6 +5,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <set>
 
 namespace graph_ns
 {
@@ -23,15 +24,13 @@ color_type color_black = 4;
  */
 class Node{
 public:
-    typedef std::list<edge_ptr> edge_list;
+    typedef std::set<edge_ptr> edge_list;
     typedef typename edge_list::iterator edge_iterator;
 private:
     node_id id_;
     edge_list out_edge_list_; // list of outgoing edges
     edge_list in_edge_list_; // list of outgoing edges
 public:
-
-    //Edge * first_outgoing_; // first outgoing edge
 
     Node(node_id id):
         id_(id)
@@ -69,18 +68,18 @@ public:
 
 void Node::add_out_edge(edge_ptr edge)
 {
-    out_edge_list_.push_back(edge);
+    out_edge_list_.insert(edge);
 }
 void Node::add_in_edge(edge_ptr edge)
 {
-    in_edge_list_.push_back(edge);
+    in_edge_list_.insert(edge);
 }
 
 
 class Graph
 {
     std::map<node_id, node_ptr> node_map_;
-    std::list<edge_ptr> edge_list_;
+    std::set<edge_ptr> edge_list_;
 
     node_id next_node_id_;
 
@@ -99,7 +98,7 @@ public:
             delete node;
         }
         // delete all edges
-        for (std::list<edge_ptr>::iterator iter = edge_list_.begin();
+        for (std::set<edge_ptr>::iterator iter = edge_list_.begin();
                 iter != edge_list_.end(); ++iter){
             delete *iter;
         }
@@ -149,10 +148,20 @@ public:
         node_ptr node_tail = get_node(tail);
         node_ptr node_head = get_node(head);
         edge_ptr edge = new Edge(node_tail, node_head);
-        edge_list_.push_back(edge);
+        edge_list_.insert(edge);
         node_tail->add_out_edge(edge);
         node_head->add_in_edge(edge);
     }
+
+    /**
+     * remove a node and all edges connecting it
+    void remove_node(node_id nodeid)
+    {
+        node_ptr node = get_node(nodeid);
+        node.clear()
+
+    }
+     */
 
 };
 
