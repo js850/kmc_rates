@@ -31,6 +31,7 @@ private:
     edge_list out_edge_list_; // list of outgoing edges
     edge_list in_edge_list_; // list of outgoing edges
 public:
+    double tau;
 
     Node(node_id id):
         id_(id)
@@ -52,6 +53,7 @@ public:
     size_t out_degree() const { return out_edge_list_.size(); }
     size_t in_degree() const { return in_edge_list_.size(); }
     size_t in_out_degree() const { return out_degree() + in_degree(); }
+    std::set<node_ptr> in_out_neighbors();
 };
 
 /**
@@ -61,6 +63,7 @@ class Edge{
 public:
     node_ptr head_; // node the edge points to
     node_ptr tail_; // node the edge comes from
+    double P;
 
     Edge(node_ptr tail, node_ptr head):
         head_(head),
@@ -71,16 +74,29 @@ public:
     node_ptr tail(){ return tail_; }
 };
 
+std::set<node_ptr> Node::in_out_neighbors() {
+    std::set<node_ptr> neibs;
+    Node::edge_iterator eiter;
+    for (eiter = out_edge_begin(); eiter != out_edge_end(); eiter++){
+        neibs.insert((*eiter)->head());
+    }
+    for (eiter = in_edge_begin(); eiter != in_edge_end(); eiter++){
+        neibs.insert((*eiter)->tail());
+    }
+    return neibs;
+}
 
 
 class Graph
 {
-    std::map<node_id, node_ptr> node_map_;
-    std::set<edge_ptr> edge_list_;
+public:
+    typedef std::map<node_id, node_ptr> node_map_t;
+    node_map_t node_map_;
+    typedef std::set<edge_ptr> edge_list_t;
+    edge_list_t edge_list_;
 
     node_id next_node_id_;
 
-public:
     Graph():
         next_node_id_(0)
     {}
