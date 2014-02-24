@@ -30,9 +30,9 @@ public:
 
 int main()
 {
-    Graph G = Graph();
+    Graph G;
 
-    graph_ns::BuildGridGraph2d builder = graph_ns::BuildGridGraph2d(G, 3, 4, true);
+    graph_ns::BuildGridGraph2d builder(G, 3, 4, true);
     builder.build_graph();
 
 
@@ -61,6 +61,20 @@ int main()
     G.remove_node(1);
     cout << "number of nodes " << G.number_of_nodes() << "\n";
     cout << "number of edges " << G.number_of_edges() << "\n";
+
+    cout << "\n\nmaking a copy of the graph\n";
+    Graph G2(G);
+    BreadthFirstSearchEdges bfs2(&G2, 2);
+    cout << "number of nodes " << G2.number_of_nodes() << "\n";
+    cout << "number of edges " << G2.number_of_edges() << "\n";
+    e = bfs2.get_next_edge();
+    while (e != NULL){
+        node_id u = e->tail()->id();
+        node_id v = e->head()->id();
+        cout << u << " -> " << v << "\n";
+        e = bfs2.get_next_edge();
+    }
+
 
     
 }

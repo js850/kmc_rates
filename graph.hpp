@@ -200,6 +200,8 @@ public:
     }
     edge_ptr _add_edge(node_ptr node_tail, node_ptr node_head)
     {
+        assert(node_tail != NULL);
+        assert(node_head != NULL);
         edge_ptr edge = new Edge(node_tail, node_head);
         edge_list_.insert(edge);
         node_tail->add_out_edge(edge);
@@ -245,6 +247,28 @@ public:
         }
 
         delete u;
+    }
+
+    /*
+     * copy constructor
+     */
+    Graph(Graph & graph):
+        next_node_id_(0)
+    {
+        for (node_map_t::iterator miter = graph.node_map_.begin(); miter != graph.node_map_.end(); ++miter){
+            node_ptr u = miter->second;
+            std::cout << "making node " << u->id() << "\n";
+            node_ptr unew = this->add_node(u->id());
+            unew->tau = u->tau;
+        }
+
+        for (edge_list_t::iterator eiter = graph.edge_list_.begin(); eiter != graph.edge_list_.end(); ++eiter){
+            edge_ptr edge = *eiter;
+            node_id uid = edge->tail()->id();
+            node_id vid = edge->head()->id();
+            edge_ptr edge_new = this->add_edge(uid, vid);
+            edge_new->P = edge->P;
+        }
     }
 
 };

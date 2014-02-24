@@ -233,6 +233,7 @@ public:
         double tau_a = get_tau(a);
         return PaB / tau_a;
     }
+
     double get_rate_BA(){
         assert(_B.size() == 1);
         node_ptr b = *_B.begin();

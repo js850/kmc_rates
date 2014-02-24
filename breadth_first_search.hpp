@@ -103,7 +103,7 @@ public:
         Nedges(0)
     {
         // add the first node to the queue
-        assert(n < graph_->number_of_nodes());
+        assert(graph->get_node(n) != NULL);
         node_color[n] = color_grey;
         node_ptr node = graph_->get_node(n);
         node_queue_.push(node);
