@@ -49,6 +49,9 @@ public:
     edge_iterator in_edge_end(){ return in_edge_list_.end(); }
 
     node_id id() const { return id_; }
+    size_t out_degree() const { return out_edge_list_.size(); }
+    size_t in_degree() const { return in_edge_list_.size(); }
+    size_t in_out_degree() const { return out_degree() + in_degree(); }
 };
 
 /**
