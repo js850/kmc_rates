@@ -45,16 +45,16 @@ public:
  */
 class Edge{
 public:
-    Node * head_; // node the edge points to
-    Node * tail_; // node the edge comes from
+    node_ptr head_; // node the edge points to
+    node_ptr tail_; // node the edge comes from
 
-    Edge(Node * tail, Node * head):
+    Edge(node_ptr tail, node_ptr head):
         head_(head),
         tail_(tail)
     {}
 
-    Node * head(){ return head_; }
-    Node * tail(){ return tail_; }
+    node_ptr head(){ return head_; }
+    node_ptr tail(){ return tail_; }
 };
 
 void Node::add_out_edge(Edge * edge)
@@ -65,7 +65,7 @@ void Node::add_out_edge(Edge * edge)
 
 class Graph
 {
-    std::map<node_id, Node *> node_map_;
+    std::map<node_id, node_ptr> node_map_;
     std::list<Edge *> edge_list_;
 
     node_id next_node_id_;
@@ -79,7 +79,7 @@ public:
     {
         // delete all nodes
         for (auto & mapval : node_map_){
-            Node * node = mapval.second;
+            node_ptr node = mapval.second;
             delete node;
         }
         node_map_.clear();
@@ -99,9 +99,9 @@ public:
      * create a new node
      */
     node_id add_node(){
-        Node *node = new Node(next_node_id_);
+        node_ptr node = new Node(next_node_id_);
         next_node_id_++;
-        node_map_.insert(std::pair<node_id, Node *> (node->id(), node));
+        node_map_.insert(std::pair<node_id, node_ptr> (node->id(), node));
         return node->id();
     }
 
@@ -117,9 +117,9 @@ public:
     /**
      * return a pointer to the node with given node id
      */
-    Node * get_node(node_id nodeid)
+    node_ptr get_node(node_id nodeid)
     {
-        typedef std::map<node_id, Node *> maptype;
+        typedef std::map<node_id, node_ptr> maptype;
         maptype::iterator iter = node_map_.find(nodeid);
         if (iter == node_map_.end()){
             return NULL;
@@ -133,8 +133,8 @@ public:
      */
     void add_edge(node_id tail, node_id head)
     {
-        Node * node_tail = get_node(tail);
-        Node * node_head = get_node(head);
+        node_ptr node_tail = get_node(tail);
+        node_ptr node_head = get_node(head);
         Edge * edge = new Edge(node_tail, node_head);
         edge_list_.push_back(edge);
         node_tail->add_out_edge(edge);
