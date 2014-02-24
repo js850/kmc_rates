@@ -11,9 +11,37 @@ using graph_ns::node_id;
 using graph_ns::edge_ptr;
 using graph_ns::node_ptr;
 
+NGT::rate_map_t make_rates(int nnodes){
+    typedef std::pair<node_id, node_id> pair_t;
+    NGT::rate_map_t rates;
+
+	for (int i=0; i<nnodes; ++i){
+		for (int j=i+1; j<nnodes; ++j){
+			rates[pair_t(i,j)] = 1.;
+			rates[pair_t(j,i)] = 1.;
+		}
+	}
+	return rates;
+}
+
+void run(){
+    std::vector<node_id> A, B;
+    A.push_back(0);
+    B.push_back(1);
+
+    NGT::rate_map_t rates = make_rates(7);
+    NGT ngt(rates, A, B);
+    ngt.debug = true;
+
+    ngt.phase_one();
+    ngt.phase_two();
+    cout << "rate A -> B " << ngt.get_rate_AB() << "\n";
+    cout << "rate B -> A " << ngt.get_rate_BA() << "\n";
+
+}
 
 
-int main()
+void run3()
 {
     std::vector<node_id> A, B;
     A.push_back(0);
@@ -54,4 +82,7 @@ int main()
     cout << "rate A -> B " << ngt.get_rate_AB() << "\n";
     cout << "rate B -> A " << ngt.get_rate_BA() << "\n";
 
+}
+int main(){
+	run();
 }
