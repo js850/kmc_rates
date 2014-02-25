@@ -62,10 +62,10 @@ public:
     		}
     	}
 
-		cout << "number of nodes " << _graph->number_of_nodes() << "\n";
-		cout << "A.size() " << _A.size() << "\n";
-		cout << "B.size() " << _B.size() << "\n";
-		cout << "intermediates.size() " << intermediates.size() << "\n";
+//		cout << "number of nodes " << _graph->number_of_nodes() << "\n";
+//		cout << "A.size() " << _A.size() << "\n";
+//		cout << "B.size() " << _B.size() << "\n";
+//		cout << "intermediates.size() " << intermediates.size() << "\n";
 		assert(intermediates.size() + _A.size() + _B.size() == _graph->number_of_nodes());
 
     }
@@ -220,6 +220,9 @@ public:
     }
 
     void remove_node(node_ptr x){
+        if (debug){
+            std::cout << "removing node " << x->id() << "\n";
+        }
         double taux = get_tau(x);
 //        double Pxx = get_node_P(x);
         double omPxx = get_node_one_minus_P(x);
@@ -258,7 +261,6 @@ public:
 
             node_ptr x = intermediates.front();
             intermediates.pop_front();
-            std::cout << "removing node " << x->id() << "\n";
 
             remove_node(x);
         }

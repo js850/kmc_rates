@@ -260,7 +260,7 @@ public:
     {
         for (node_map_t::iterator miter = graph.node_map_.begin(); miter != graph.node_map_.end(); ++miter){
             node_ptr u = miter->second;
-            std::cout << "making node " << u->id() << "\n";
+//            std::cout << "making node " << u->id() << "\n";
             node_ptr unew = this->add_node(u->id());
             unew->tau = u->tau;
         }
