@@ -16,6 +16,7 @@ cdef extern from "ngt.hpp" namespace "graph_ns":
         void compute()
         double get_rate_AB()
         double get_rate_BA()
+        void set_node_occupation_probabilities(map[node_id, double] &)
 
 
 
@@ -32,7 +33,7 @@ cdef class BaseNGT(object):
     cdef node_list
     cdef node2id
     
-    def __cinit__(self, rates, A, B):
+    def __cinit__(self, rates, A, B, weights=None):
         # assign ids to all the nodes
         nodes = set()
         for u, v in rates.iterkeys():
@@ -58,6 +59,17 @@ cdef class BaseNGT(object):
             
         
         self.thisptr = new cNGT(rate_map, _A, _B)
+        cdef map[node_id, double] Peq 
+        if weights is not None:
+            for u, p in weights.iteritems():
+                try:
+                    uid = self.node2id[u]
+                    Peq[uid] = p
+                except KeyError:
+                    pass
+                    print "node", u, "was not in node2id"
+                        
+            self.thisptr.set_node_occupation_probabilities(Peq)
     
     def compute(self):
         self.thisptr.compute()
