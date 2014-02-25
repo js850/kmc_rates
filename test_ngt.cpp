@@ -17,8 +17,8 @@ NGT::rate_map_t make_rates(int nnodes){
 
 	for (int i=0; i<nnodes; ++i){
 		for (int j=i+1; j<nnodes; ++j){
-			rates[pair_t(i,j)] = 1.;
-			rates[pair_t(j,i)] = 0.5;
+			rates[pair_t(i,j)] = float(i+j) / (i+1);
+			rates[pair_t(j,i)] = float(i+j) / (j+1);
 		}
 	}
 	return rates;
@@ -32,8 +32,17 @@ void run(){
     B.push_back(3);
     B.push_back(4);
 
+    std::map<node_id, double> Peq;
+    Peq[0] = 1.;
+    Peq[1] = 1.;
+    Peq[2] = 5e3;
+    Peq[3] = 1.;
+    Peq[4] = 1.;
+    Peq[5] = 1.;
+
     NGT::rate_map_t rates = make_rates(100);
     NGT ngt(rates, A, B);
+    ngt.set_node_occupation_probabilities(Peq);
 //    ngt.debug = true;
 
     ngt.phase_one();

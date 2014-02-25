@@ -27,10 +27,12 @@ public:
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
     bool debug;
-    bool own_graph;
+    bool own_graph; // if this is true then delete graph in the destructor
 
     std::map<node_id, double> final_omPxx;
     std::map<node_id, double> final_tau;
+    std::map<node_id, double> weights;
+
 
     
     ~NGT()
@@ -150,6 +152,10 @@ public:
         assert(intermediates.size() + _A.size() + _B.size() == _graph->number_of_nodes());
 
 
+    }
+
+    void set_node_occupation_probabilities(std::map<node_id, double> &Peq){
+        weights.insert(Peq.begin(), Peq.end());
     }
 
     void sort_intermediates(){
@@ -304,8 +310,12 @@ public:
             node_ptr a = *aiter;
             double omPxx = final_omPxx.at(a->id());
             double tau_a = final_tau.at(a->id());
-            rate_sum += omPxx / tau_a;
-            norm += 1.;
+            double weight = 1.;
+            if (weights.size() > 0){
+                weight = weights.at(a->id());
+            }
+            rate_sum += weight * omPxx / tau_a;
+            norm += weight;
         }
         return rate_sum / norm;
     }
