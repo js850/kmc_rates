@@ -295,20 +295,25 @@ public:
     	reduce_all_in_group(_B, _A);
     }
 
+    double _get_rate_final(std::set<node_ptr> &A){
+        double rate_sum = 0.;
+        double norm = 0.;
+        for (std::set<node_ptr>::iterator aiter = A.begin(); aiter != A.end(); ++aiter){
+            node_ptr a = *aiter;
+            double omPxx = final_omPxx.at(a->id());
+            double tau_a = final_tau.at(a->id());
+            rate_sum += omPxx / tau_a;
+            norm += 1.;
+        }
+        return rate_sum / norm;
+    }
+
     double get_rate_AB(){
-        assert(_A.size() == 1);
-        node_ptr a = *_A.begin();
-        double omPxx = final_omPxx.at(a->id());
-        double tau_a = final_tau.at(a->id());
-        return omPxx / tau_a;
+        return _get_rate_final(_A);
     }
 
     double get_rate_BA(){
-        assert(_B.size() == 1);
-        node_ptr b = *_B.begin();
-        double PbA = get_node_one_minus_P(b);
-        double tau_b = get_tau(b);
-        return PbA / tau_b;
+        return _get_rate_final(_B);
     }
 
 

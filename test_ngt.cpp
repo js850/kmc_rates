@@ -18,7 +18,7 @@ NGT::rate_map_t make_rates(int nnodes){
 	for (int i=0; i<nnodes; ++i){
 		for (int j=i+1; j<nnodes; ++j){
 			rates[pair_t(i,j)] = 1.;
-			rates[pair_t(j,i)] = 1.;
+			rates[pair_t(j,i)] = 0.5;
 		}
 	}
 	return rates;
@@ -27,9 +27,12 @@ NGT::rate_map_t make_rates(int nnodes){
 void run(){
     std::vector<node_id> A, B;
     A.push_back(0);
-    B.push_back(1);
+    A.push_back(1);
+    A.push_back(2);
+    B.push_back(3);
+    B.push_back(4);
 
-    NGT::rate_map_t rates = make_rates(7);
+    NGT::rate_map_t rates = make_rates(5);
     NGT ngt(rates, A, B);
     ngt.debug = true;
 
