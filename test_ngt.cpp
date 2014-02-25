@@ -3,6 +3,8 @@
 #include "grid_graph.hpp"
 #include "ngt.hpp"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 using std::cout;
 using namespace graph_ns;
@@ -22,6 +24,77 @@ NGT::rate_map_t make_rates(int nnodes){
 		}
 	}
 	return rates;
+}
+
+template<class T>
+size_t read1(const std::string file_name, T& table) {
+    table.clear();
+    size_t lines_read = 0;
+    std::ifstream in(file_name.c_str());
+    std::string line;
+    while (std::getline(in, line)) {
+        ++lines_read;
+        std::istringstream iss(line);
+        node_id u;
+        iss >> u;
+//        cout << u << "\n";
+        table.push_back(u); // so that we don't loose trailing tabs
+    }
+    return lines_read;
+}
+template<class T>
+size_t read2(const std::string file_name, T& table) {
+    table.clear();
+    size_t lines_read = 0;
+    std::ifstream in(file_name.c_str());
+    std::string line;
+    while (std::getline(in, line)) {
+        ++lines_read;
+        std::istringstream iss(line);
+        node_id u;
+        double p;
+        iss >> u;
+        iss >> p;
+//        cout << u << " " << p << "\n";
+        table[u] = p; // so that we don't loose trailing tabs
+    }
+    return lines_read;
+}
+template<class T>
+size_t read3(const std::string file_name, T& table) {
+    table.clear();
+    size_t lines_read = 0;
+    std::ifstream in(file_name.c_str());
+    std::string line;
+    while (std::getline(in, line)) {
+        ++lines_read;
+        std::istringstream iss(line);
+        node_id u, v;
+        double k;
+        iss >> u;
+        iss >> v;
+        iss >> k;
+//        cout << u << " " << v << " " << k << "\n";
+        table[std::pair<node_id, node_id>(u,v)] = k; // so that we don't loose trailing tabs
+    }
+    return lines_read;
+}
+
+void run_from_optim(){
+    std::list<node_id> A, B;
+    std::map<node_id, double> Peq;
+    NGT::rate_map_t rates;
+    read1("in.A", A);
+    read1("in.B", B);
+    read2("in.Peq", Peq);
+    read3("in.rates", rates);
+
+    NGT ngt(rates, A, B);
+    ngt.set_node_occupation_probabilities(Peq);
+    ngt.compute();
+    cout << "rate A -> B " << ngt.get_rate_AB() << "\n";
+    cout << "rate B -> A " << ngt.get_rate_BA() << "\n";
+
 }
 
 void run(){
@@ -96,5 +169,6 @@ void run3()
 
 }
 int main(){
-	run();
+    run_from_optim();
+//    run();
 }

@@ -25,6 +25,21 @@ and reactant states are read from min.A and min.B.  The rates are computed
 by solving a set of linear equations using a sparse solver.
 """
 
+def write_dat_files(rates, A, B, Peq):
+    with open("in.A", "w") as fout:
+        for a in A:
+            fout.write("%d\n" % a)
+    with open("in.B", "w") as fout:
+        for b in B:
+            fout.write("%d\n" % b)
+    with open("in.Peq", "w") as fout:
+        for u, p in Peq.iteritems():
+            fout.write("%d %.16g\n" % (u, p))
+    with open("in.rates", "w") as fout:
+        for (u, v), p in rates.iteritems():
+            fout.write("%d %d %.16g\n" % (u, v, p))
+        
+
 def main():
     """the main loop"""
     tstart =  time.clock()
@@ -56,6 +71,8 @@ def main():
     except Exception:
         analyze_graph_error(rate_constants, A, B)
         raise
+    
+    write_dat_files(rate_constants, A, B, Peq)
     
     print "computing mean first passage times"
     calculator = NGT(rate_constants, A, B, weights=Peq)#, check_rates=False)
@@ -91,9 +108,9 @@ def main():
 #            for i, c in coms:
 #                fout.write("%d %.12g\n" % (i, c))
 #    
-#    time_solve = calculator.mfpt_computer.time_solve + calculator.committor_computer.time_solve
-#    print "time spent solving linear equations", time_solve, "seconds"
-#    print "total time", time.clock() - tstart
+    time_solve = calculator.time_solve #+ calculator.committor_computer.time_solve
+    print "time spent solving linear equations", time_solve, "seconds"
+    print "total time", time.clock() - tstart
      
 
 

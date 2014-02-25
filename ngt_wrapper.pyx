@@ -1,3 +1,5 @@
+import time
+
 from libcpp.vector cimport vector
 from libcpp.map cimport map
 from libcpp.pair cimport pair
@@ -32,6 +34,7 @@ cdef class BaseNGT(object):
     cdef cNGT* thisptr
     cdef node_list
     cdef node2id
+    time_solve = 0.
     
     def __cinit__(self, rates, A, B, weights=None):
         # assign ids to all the nodes
@@ -67,12 +70,13 @@ cdef class BaseNGT(object):
                     Peq[uid] = p
                 except KeyError:
                     pass
-                    print "node", u, "was not in node2id"
                         
             self.thisptr.set_node_occupation_probabilities(Peq)
     
     def compute(self):
+        t0 = time.clock()
         self.thisptr.compute()
+        self.time_solve = time.clock() - t0 
     
     def get_rate_AB(self):
         return self.thisptr.get_rate_AB()

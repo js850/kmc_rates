@@ -175,7 +175,23 @@ public:
         return u->get_successor_edge(u);
     }
     double get_node_P(node_ptr u){ return get_P(u->get_successor_edge(u)); }
-    double get_node_one_minus_P(node_ptr u){ return 1. - get_P(u->get_successor_edge(u)); }
+    double get_node_one_minus_P(node_ptr u){
+        edge_ptr uu = u->get_successor_edge(u);
+        double Puu = get_P(uu);
+        if (Puu < 0.99){
+            return 1. - Puu;
+        } else {
+            // sum the contributions from all other edges
+            double omPuu = 0.;
+            for (Node::edge_iterator eiter = u->out_edge_begin(); eiter != u->out_edge_end(); ++eiter){
+                node_ptr v = (*eiter)->head();
+                if (v != u){
+                    omPuu += (*eiter)->P;
+                }
+            }
+            return omPuu;
+        }
+    }
 
     inline void set_tau(node_ptr u, double tau){ u->tau = tau; }
     inline void set_P(edge_ptr edge, double P){ edge->P = P; }
