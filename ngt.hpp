@@ -216,12 +216,7 @@ public:
        return edge;
     }
 
-    void update_edge(node_ptr u, node_ptr v, node_ptr x, edge_ptr ux, double omPxx){
-        edge_ptr xv = x->get_successor_edge(v);
-        if (ux == NULL || xv == NULL){
-            // no need to do anything if either of these don't exist
-            return;
-        }
+    void update_edge(node_ptr u, node_ptr v, node_ptr x, edge_ptr ux, edge_ptr xv, double omPxx){
         edge_ptr uv = u->get_successor_edge(v);
         if (uv == NULL){
             uv = add_edge(u, v);
@@ -263,13 +258,18 @@ public:
         neibs.erase(x);
 
         //
-        for (std::set<node_ptr>::iterator uiter = neibs.begin(); uiter != neibs.end(); ++uiter){
-            node_ptr u = *uiter;
-            edge_ptr ux = u->get_successor_edge(x);
-            if (ux == NULL) continue;
-            for (std::set<node_ptr>::iterator viter = neibs.begin(); viter != neibs.end(); ++viter){
-                node_ptr v = *viter;
-                update_edge(u, v, x, ux, omPxx);
+        for (Node::edge_iterator xviter = x->out_edge_begin(); xviter != x->out_edge_end(); ++xviter){
+            edge_ptr xv = *xviter;
+            node_ptr v = xv->head();
+            if (v == x) continue;
+            for (Node::edge_iterator uxiter = x->in_edge_begin(); uxiter != x->in_edge_end(); ++uxiter){
+                edge_ptr ux = *uxiter;
+                node_ptr u = ux->tail();
+                if (u == x) continue;
+//                if (u == v){
+//                    continue;
+//                }
+                update_edge(u, v, x, ux, xv, omPxx);
             }
         }
 

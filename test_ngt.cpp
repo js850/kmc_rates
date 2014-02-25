@@ -116,7 +116,7 @@ void run(){
     NGT::rate_map_t rates = make_rates(100);
     NGT ngt(rates, A, B);
     ngt.set_node_occupation_probabilities(Peq);
-//    ngt.debug = true;
+    ngt.debug = true;
 
     ngt.phase_one();
     ngt.phase_two();
@@ -142,7 +142,7 @@ void run3()
     rates[pair_t(2,1)] = 1.;
 
     NGT ngt(rates, A, B);
-//    ngt.debug = true;
+    ngt.debug = true;
     node_ptr a = ngt._graph->get_node(0);
     node_ptr b = ngt._graph->get_node(1);
     edge_ptr ab = a->get_successor_edge(b);
@@ -169,6 +169,7 @@ void run3()
 
 }
 int main(){
-    run_from_optim();
-//    run();
+//    run_from_optim();
+    run();
+//    run3();
 }
