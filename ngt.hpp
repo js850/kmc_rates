@@ -31,7 +31,7 @@ public:
 
     std::map<node_id, double> final_omPxx;
     std::map<node_id, double> final_tau;
-    std::map<node_id, double> weights;
+    std::map<node_id, double> weights; // normally these are equilibrium occupation probabilities
 
 
     
@@ -72,7 +72,8 @@ public:
 
     }
 
-    NGT(rate_map_t &rate_constants, std::vector<node_id> &A, std::vector<node_id> &B) :
+    template<class Acontainer, class Bcontainer>
+    NGT(rate_map_t &rate_constants, Acontainer &A, Bcontainer &B) :
         _graph(new Graph()),
         debug(false),
         own_graph(true)
@@ -127,10 +128,10 @@ public:
 
 
         // make the set of A and B
-        for (std::vector<node_id>::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
+        for (typename Acontainer::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
             _A.insert(_graph->get_node(*node_iter));
         }
-        for (std::vector<node_id>::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
+        for (typename Bcontainer::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
             _B.insert(_graph->get_node(*node_iter));
         }
 
@@ -301,6 +302,11 @@ public:
     void phase_two(){
     	reduce_all_in_group(_A, _B);
     	reduce_all_in_group(_B, _A);
+    }
+
+    void compute(){
+        phase_one();
+        phase_two();
     }
 
     double _get_rate_final(std::set<node_ptr> &A){
