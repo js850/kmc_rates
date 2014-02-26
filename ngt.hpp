@@ -44,15 +44,15 @@ public:
     }
 
     template<class Acontainer, class Bcontainer>
-    NGT(Graph & graph, Acontainer &A, Bcontainer &B) :
+    NGT(Graph & graph, Acontainer const &A, Bcontainer const &B) :
         _graph(& graph),
         debug(false),
         own_graph(false)
     {
-    	for (typename Acontainer::iterator iter = A.begin(); iter != A.end(); ++iter){
+    	for (typename Acontainer::const_iterator iter = A.begin(); iter != A.end(); ++iter){
     		_A.insert(_graph->get_node(*iter));
     	}
-    	for (typename Bcontainer::iterator iter = B.begin(); iter != B.end(); ++iter){
+    	for (typename Bcontainer::const_iterator iter = B.begin(); iter != B.end(); ++iter){
     		_B.insert(_graph->get_node(*iter));
     	}
 
@@ -73,7 +73,7 @@ public:
     }
 
     template<class Acontainer, class Bcontainer>
-    NGT(rate_map_t &rate_constants, Acontainer &A, Bcontainer &B) :
+    NGT(rate_map_t &rate_constants, Acontainer const &A, Bcontainer const &B) :
         _graph(new Graph()),
         debug(false),
         own_graph(true)
@@ -128,10 +128,10 @@ public:
 
 
         // make the set of A and B
-        for (typename Acontainer::iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
+        for (typename Acontainer::const_iterator node_iter = A.begin(); node_iter != A.end(); ++node_iter){
             _A.insert(_graph->get_node(*node_iter));
         }
-        for (typename Bcontainer::iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
+        for (typename Bcontainer::const_iterator node_iter = B.begin(); node_iter != B.end(); ++node_iter){
             _B.insert(_graph->get_node(*node_iter));
         }
 
@@ -302,31 +302,52 @@ public:
     		Bids.push_back((*iter)->id());
     	}
 
-    	// for each node in Aids
-    	while (Aids.size() > 0){
-    	    /*
-    	     * Create a new graph and a new NGT object new_ngt.  Pass x as A and Bids as B.  new_ngt will
-    	     * remove all `intermediates`, i.e. everything in Aids except x.  Then save the final
-    	     * value of 1-Pxx and tau_x.
-    	     */
-    		node_id x = Aids.back();
-            Aids.pop_back();
-    		std::list<node_id> newAids;
-    		newAids.push_back(x);
+    	if (Aids.size() > 1){
+            Graph working_graph(*_graph);
+            std::list<node_id> empty_list;
+            NGT working_ngt(working_graph, std::list<node_id>(), Bids);
+            while (Aids.size() > 1){
+                /*
+                 * Create a new graph and a new NGT object new_ngt.  Pass x as A and Bids as B.  new_ngt will
+                 * remove all `intermediates`, i.e. everything in Aids except x.  Then save the final
+                 * value of 1-Pxx and tau_x.
+                 */
+                // choose an element x and remove it from the list
+                node_id x = Aids.back();
+                Aids.pop_back();
+                std::list<node_id> newAids;
+                newAids.push_back(x);
 
-    		Graph new_graph(*_graph);
-    		NGT new_ngt(new_graph, newAids, Bids);
-    		new_ngt.remove_intermediates();
-    		node_ptr xptr = new_graph.get_node(x);
-    		final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
-    		final_tau[x] = new_ngt.get_tau(xptr);
+                // make a new graph from the old graph
+                Graph new_graph(working_graph);
+
+                // remove all nodes from new_graph except x
+                NGT new_ngt(new_graph, newAids, Bids);
+                new_ngt.remove_intermediates();
+                node_ptr xptr = new_graph.get_node(x);
+                final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
+                final_tau[x] = new_ngt.get_tau(xptr);
+
+                // delete node x from the old_graph
+                working_ngt.remove_node(working_graph.get_node(x));
+            }
+            // there is one node left. we can just read off the results
+            assert(Aids.size() == 1);
+            node_id x = Aids.back();
+            Aids.pop_back();
+            node_ptr xptr = working_graph.get_node(x);
+            final_omPxx[x] = working_ngt.get_node_one_minus_P(xptr);
+            final_tau[x] = working_ngt.get_tau(xptr);
+
+    	} else if (Aids.size() == 1) {
+    	    // if there is only one node in A then we can just read off the results.
+    	    node_id x = Aids.back();
+    	    Aids.pop_back();
+    	    node_ptr xptr = _graph->get_node(x);
+            final_omPxx[x] = get_node_one_minus_P(xptr);
+            final_tau[x] = get_tau(xptr);
     	}
-//    	if (Aids.size() == 1) {
-//    	    node_id x = Aids.back();
-//    	    node_ptr xptr = _graph->get_node(x);
-//            final_omPxx[x] = get_node_one_minus_P(xptr);
-//            final_tau[x] = get_tau(xptr);
-//    	}
+    	assert(Aids.size() == 0);
     }
 
     void phase_two(){
