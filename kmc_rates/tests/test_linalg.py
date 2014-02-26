@@ -1,7 +1,7 @@
 import unittest
 from test_graph_transformation import _three_state_rates, _MakeRandomGraph
 
-from rates_linalg import CommittorLinalg, MfptLinalgSparse, TwoStateRates
+from kmc_rates.rates_linalg import CommittorLinalg, MfptLinalgSparse, TwoStateRates
 
 class TestLinalg3(unittest.TestCase):
     def setUp(self):
