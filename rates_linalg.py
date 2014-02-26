@@ -250,12 +250,14 @@ class MfptLinalgSparse(object):
         self.node2i = node2i
         self.matrix =  matrix.tocsr()
     
-    def compute_mfpt(self, use_umfpack=True, cg=False):
+    def compute_mfpt(self, use_umfpack=True, cg=False, mfpt_estimate=None):
         if not hasattr(self, "matrix"):
             self.make_matrix(self.nodes - self.B)
         t0 = time.clock()
         if cg:
-            times, info = scipy.sparse.linalg.cgs(self.matrix, -np.ones(self.matrix.shape[0]))
+            x0 = np.array([mfpt_estimate[u] for u in self.node_list])
+            times, info = scipy.sparse.linalg.cgs(self.matrix, -np.ones(self.matrix.shape[0]),
+                                                  x0=x0)
             print "time to solve using conjugate gradient", time.clock() - t0
         else:
             times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
@@ -308,7 +310,54 @@ class MfptLinalgSparse(object):
             raise RuntimeError("error the mean first passage times are not all greater than zero")
         return self.mfpt_dict
 
+    def compute_mfpt_from_estimate(self, mfpt_estimates):
+        intermediates = self.nodes - self.B
         
+        node_list = list(intermediates)
+        n = len(node_list)
+        matrix = scipy.sparse.dok_matrix((n,n))
+        node2i = dict([(node,i) for i, node in enumerate(node_list)])
+        
+        right_side = -np.ones(len(node_list))
+        
+        for iu, u in enumerate(node_list):
+            matrix[iu,iu] = -self.sum_out_rates[u] * mfpt_estimates[u]
+        
+        for uv, rate in self.rates.iteritems():
+            u, v = uv
+            if u in intermediates and v in intermediates: 
+                ui = node2i[u]
+                vi = node2i[v]
+                assert ui != vi
+                matrix[ui,vi] = rate * mfpt_estimates[v]
+        
+        matrix_max = np.max(matrix.values())
+        print "matrix max value", np.max(matrix.values())
+        print "matrix min value", np.min(matrix.values())
+        print "matrix min abs value", np.min([np.abs(v) for v in matrix.values()])
+#        for ij, v in matrix.iteritems():
+#            matrix[ij] = v / matrix_max
+#        print "new matrix max value", np.max(matrix.values())
+#        print "new matrix min value", np.min(matrix.values())
+
+            
+        
+        matrix =  matrix.tocsc()
+        
+        t0 = time.clock()
+        cg = True
+        if cg:
+            times, info = scipy.sparse.linalg.cgs(matrix, right_side)
+            print "time to solve using conjugate gradient", time.clock() - t0
+        else:
+            times = scipy.sparse.linalg.spsolve(matrix, right_side,
+                                                use_umfpack=True)
+            print "time solving symmetric linalg", time.clock() - t0
+        self.time_solve += time.clock() - t0
+        self.mfpt_dict = dict(((u, time * mfpt_estimates[u]) for u, time in izip(node_list, times)))
+        if np.any(times < 0):
+            raise RuntimeError("error the mean first passage times are not all greater than zero")
+        return self.mfpt_dict
 
     def compute_mfpt_subgroups(self, use_umfpack=True):
         for group in self.subgroups:
@@ -385,16 +434,19 @@ class TwoStateRates(object):
             return self.committor_dict[x]
     
     def compute_rates(self, use_umfpack=True, subgroups=False, symmetric=False, Peq=None,
-                      cg=False):
+                      cg=False, mfpt_estimates=None):
         """compute the mean first passage times."""
-        if symmetric:
+        if mfpt_estimates is not None and not cg:
+            self.mfptimes = self.mfpt_computer.compute_mfpt_from_estimate(mfpt_estimates)
+        elif symmetric:
             assert Peq is not None
             self.mfptimes = self.mfpt_computer.compute_mfpt_symmetric(Peq)
             return
-        if subgroups:
+        elif subgroups:
             self.mfptimes = self.mfpt_computer.compute_mfpt_subgroups(use_umfpack=use_umfpack)
         else:
-            self.mfptimes = self.mfpt_computer.compute_mfpt(use_umfpack=use_umfpack, cg=cg)
+            self.mfptimes = self.mfpt_computer.compute_mfpt(use_umfpack=use_umfpack, cg=cg,
+                                                            mfpt_estimate=mfpt_estimates)
     
     def compute_committors(self):
         """compute the committors""" 

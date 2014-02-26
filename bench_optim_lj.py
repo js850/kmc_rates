@@ -5,7 +5,7 @@ import networkx as nx
 import numpy as np
 import scipy.sparse.linalg
 import time
-from rates_linalg import TwoStateRates, EstimateRates
+from rates_linalg import TwoStateRates, EstimateRates, reduce_rates
 from pele.utils.disconnectivity_graph import Tree
 import sys
 tstart = time.clock()
@@ -129,6 +129,7 @@ def read_minA(fname, db):
 
 db = Database()
 direc = "lj38/20000.minima"
+direc = "."
 if db.number_of_minima() == 0:
     converter = OptimDBConverter(db, mindata=direc+"/min.data", 
              tsdata=direc+"/ts.data")
@@ -155,7 +156,7 @@ print B[0].energy
 
 
 print "computing rates from minima data"
-T = .2
+T = .05
 print "temperature", T
 pele_rates = RateCalculation(db.transition_states(), A, B, T=T, use_fvib=True)
 pele_rates._make_kmc_graph()
@@ -164,11 +165,16 @@ weights = pele_rates._get_equilibrium_occupation_probabilities()
 rate_norm = np.exp(-pele_rates.max_log_rate)
 #Peq = pele_rates._get_equilibrium_occupation_probabilities()
 
+print "reducing rates"
+rate_constants = reduce_rates(rates, B, A=A)
+
+
 
 print "max rate constant", max(rates.itervalues())
 print "min rate constant", min(rates.itervalues())
 
-if True:
+if False:
+    print "determining optimal A and B states"
     amin = sorted(A, key=lambda m:m.energy)[0]
     bmin = sorted(B, key=lambda m:m.energy)[0]
 #    graph = nx.Graph()
@@ -201,8 +207,20 @@ if True:
     exit()
 
 
+if True:
+    print "\nestimating rates"
+    estimator = EstimateRates(rates, weights, B)
+    print "max rate estimate", max(estimator.rate_estimates.itervalues())
+    print "max rate estimate", min(estimator.rate_estimates.itervalues())
+    print "rate estimate", estimator.rate_estimates[A[0]] / rate_norm
+    mfpt_estimates = dict(( (u, 1./k) for u, k in estimator.rate_estimates.iteritems() ))
+
 tsr = TwoStateRates(rates, A, B, weights=weights)
 print "after removing unconnected we have", len(tsr.mfpt_computer.nodes), "nodes and", len(tsr.mfpt_computer.rates), "rates"
+if True:
+    print "computing rates using mfpt estimates"
+#    tsr.compute_rates(mfpt_estimates=mfpt_estimates)
+    tsr.compute_rates(mfpt_estimates=mfpt_estimates, cg=True)
 if False:
     tsr.compute_rates(symmetric=True, Peq=weights)
 else:
@@ -217,15 +235,14 @@ print ""
 sys.stdout.flush()
 
 if True:
-    print "\nestimating rates"
-    lin = tsr
-    estimator = EstimateRates(lin.rate_constants, weights, B)
+    print "\ncomparing estimates"
+    estimator = EstimateRates(rates, weights, B)
     print "rate estimate", estimator.rate_estimates[A[0]] / rate_norm
     estimates = dict()
-    for u, t in lin.mfpt_computer.mfpt_dict.iteritems():
+    for u, t in tsr.mfpt_computer.mfpt_dict.iteritems():
         kcalc = 1. / t / rate_norm
         kest = estimator.rate_estimates[u] / rate_norm
-        print u._id, kest, kcalc, kest / kcalc
+#        print u._id, kest, kcalc, kest / kcalc
         estimates[u] = (kcalc, kest)
     print "max rate", max([kcalc for kcalc, kest in estimates.values()])
     print "min rate", min([kcalc for kcalc, kest in estimates.values()])

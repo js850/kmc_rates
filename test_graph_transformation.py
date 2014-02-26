@@ -68,7 +68,7 @@ class TestGraphReduction3(unittest.TestCase):
         self.final_rate = 1.0
 
     def _test_rate(self, i, j):
-        reducer = GraphReduction(self.graph, [i], [j], debug=False)
+        reducer = GraphReduction(self.graph, [i], [j], debug=True)
         reducer.check_graph()
         reducer.compute_rates()
         rAB = reducer.get_rate_AB()
