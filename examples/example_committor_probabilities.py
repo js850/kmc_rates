@@ -1,8 +1,7 @@
 import networkx as nx
 import numpy as np
 
-from kmc_rates import GraphReduction, kmcgraph_from_rates
-from kmc import KineticMonteCarlo
+from kmc_rates import GraphReduction, kmcgraph_from_rates, KineticMonteCarlo
 
 def main(plot=True):
     # make a graph representing a lattice in two dimensions
@@ -17,12 +16,13 @@ def main(plot=True):
         rates[(u,v)] = np.random.rand()
         rates[(v,u)] = np.random.rand()
         
-    # make the kmc graph from the rates
-    kmc_graph = kmcgraph_from_rates(rates)
     
     # set up the graph reduction object
-    reducer = GraphReduction(kmc_graph, A, B)
+    reducer = GraphReduction(rates, A, B)
     
+    
+    # make the kmc graph from the rates
+    kmc_graph = kmcgraph_from_rates(rates)
     com_prob = reducer.compute_committor_probabilities(kmc_graph.nodes())
 
     if plot:    

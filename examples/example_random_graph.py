@@ -1,7 +1,6 @@
 import numpy as np
 
-from kmc_rates import GraphReduction, kmcgraph_from_rates
-from kmc import KineticMonteCarlo
+from kmc_rates import GraphReduction, kmcgraph_from_rates, KineticMonteCarlo
 
 def readme_example():
     from kmc_rates import GraphReduction, kmcgraph_from_rates
@@ -16,8 +15,7 @@ def readme_example():
     # set up the calculation of the transition rate from node 0 to node 1
     A = [0]
     B = [1]
-    kmc_graph = kmcgraph_from_rates(rates)
-    reducer = GraphReduction(kmc_graph, A, B)
+    reducer = GraphReduction(rates, A, B)
     reducer.compute_rates()
     rAB = reducer.get_rate_AB()
     print "the transition rate from nodes", A, "to nodes", B, "is", rAB
@@ -39,9 +37,6 @@ def main():
             if i != j:
                 rates[(i,j)] = transition_matrix[i][j]
 
-    # use the utility function to build the rate graph with the correct formatting
-    kmc_graph = kmcgraph_from_rates(rates)
-    kmc_graph_backup = kmc_graph.copy()
 
     # we want to compute rates from node 0 to node 1
     A = [0,1]
@@ -49,11 +44,13 @@ def main():
     x = 2
     
     # set up the class which will compute rates for us
-    reducer = GraphReduction(kmc_graph, A, B)
+    reducer = GraphReduction(rates, A, B)
     
     
     # now to check the values do a kinetic monte carlo run
-    kmc = KineticMonteCarlo(kmc_graph_backup)
+    # use the utility function to build the rate graph with the correct formatting
+    kmc_graph = kmcgraph_from_rates(rates)
+    kmc = KineticMonteCarlo(kmc_graph)
     
     niterlist = [10, 100, 1000, 10000]
 
