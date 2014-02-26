@@ -258,14 +258,14 @@ public:
         neibs.erase(x);
 
         //
-        for (Node::edge_iterator xviter = x->out_edge_begin(); xviter != x->out_edge_end(); ++xviter){
-            edge_ptr xv = *xviter;
-            node_ptr v = xv->head();
-            if (v == x) continue;
-            for (Node::edge_iterator uxiter = x->in_edge_begin(); uxiter != x->in_edge_end(); ++uxiter){
-                edge_ptr ux = *uxiter;
-                node_ptr u = ux->tail();
-                if (u == x) continue;
+        for (Node::edge_iterator uxiter = x->in_edge_begin(); uxiter != x->in_edge_end(); ++uxiter){
+            edge_ptr ux = *uxiter;
+            node_ptr u = ux->tail();
+            if (u == x) continue;
+            for (Node::edge_iterator xviter = x->out_edge_begin(); xviter != x->out_edge_end(); ++xviter){
+                edge_ptr xv = *xviter;
+                node_ptr v = xv->head();
+                if (v == x) continue;
 //                if (u == v){
 //                    continue;
 //                }
