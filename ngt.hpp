@@ -303,13 +303,14 @@ public:
     	}
 
     	// for each node in Aids
-    	for (std::list<node_id>::iterator iter = Aids.begin(); iter != Aids.end(); ++iter){
+    	while (Aids.size() > 0){
     	    /*
     	     * Create a new graph and a new NGT object new_ngt.  Pass x as A and Bids as B.  new_ngt will
     	     * remove all `intermediates`, i.e. everything in Aids except x.  Then save the final
     	     * value of 1-Pxx and tau_x.
     	     */
-    		node_id x = *iter;
+    		node_id x = Aids.back();
+            Aids.pop_back();
     		std::list<node_id> newAids;
     		newAids.push_back(x);
 
@@ -320,6 +321,12 @@ public:
     		final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
     		final_tau[x] = new_ngt.get_tau(xptr);
     	}
+//    	if (Aids.size() == 1) {
+//    	    node_id x = Aids.back();
+//    	    node_ptr xptr = _graph->get_node(x);
+//            final_omPxx[x] = get_node_one_minus_P(xptr);
+//            final_tau[x] = get_tau(xptr);
+//    	}
     }
 
     void phase_two(){
