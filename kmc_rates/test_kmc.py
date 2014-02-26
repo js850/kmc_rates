@@ -1,10 +1,8 @@
 import unittest
 import numpy as np
 
-from kmc import KineticMonteCarlo
-from kmc_rates import GraphReduction
+from kmc_rates import GraphReduction, TwoStateRates, KineticMonteCarlo
 from test_graph_transformation import _MakeRandomGraph, _three_state_graph
-from rates_linalg import TwoStateRates
 
 
 class TestKMC(unittest.TestCase):
