@@ -22,9 +22,23 @@ def kmcgraph_from_rates(rates):
     ----------
     rates : dict
         a dictionary of rates.  the keys are tuples of nodes (u,v), the values
-        are the rates.
+        are the rate constants from u to v.
+    
+    Returns
+    -------
+        graph : networkx.DiGraph object
+        A directed graph specifying the connectivity, the initial transition
+        probabilities and the occupation times.  The graph must have all the
+        data in the correct format.  Each node must have the following keys in
+        their attributes dictionary::
+            
+            "tau" : occupation time
         
-            rate_uv = rate[(u,v)]
+        Each edge between nodes u and v must have the following keys in their
+        attributes dictionary:
+        
+            "P" : transition probability from u to v
+
     """
     graph = nx.DiGraph()
     sumk = defaultdict(lambda: 0.)
@@ -59,19 +73,9 @@ class GraphReduction(object):
     
     Parameters
     ----------
-    graph : networkx.DiGraph object
-        A directed graph specifying the connectivity, the initial transition
-        probabilities and the occupation times.  The graph must have all the
-        data in the correct format.  Each node must have the following keys in
-        their attributes dictionary::
-            
-            "tau" : occupation time
-        
-        Each edge between nodes u and v must have the following keys in their
-        attributes dictionary:
-        
-            "P" : transition probability from u to v
-        
+    rate_constants : dict
+        a dictionary of rates.  the keys are tuples of nodes (u,v), the values
+        are the rate constants from u to v.
     A, B : iterables
         Groups of nodes specifying the reactant and product groups.  The rates
         returned will be the rate from A to B and vice versa.
@@ -91,8 +95,8 @@ class GraphReduction(object):
     the states in A
     
     """
-    def __init__(self, graph, A, B, debug=False, weights=None):
-        self.graph = graph
+    def __init__(self, rate_constants, A, B, debug=False, weights=None):
+        self.graph = kmcgraph_from_rates(rate_constants)
         self.A = set(A)
         self.B = set(B)
         if weights is None:
