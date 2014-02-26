@@ -73,6 +73,11 @@ cdef class BaseNGT(object):
                         
             self.thisptr.set_node_occupation_probabilities(Peq)
     
+    def __dealloc__(self):
+        if self.thisptr != NULL:
+            del self.thisptr
+            self.thisptr = NULL
+    
     def compute(self):
         t0 = time.clock()
         self.thisptr.compute()
