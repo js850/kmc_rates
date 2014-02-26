@@ -1,3 +1,9 @@
+# distutils: language = c++
+# distutils: sources = source/ngt.hpp
+# distutils: language = C++
+"""
+# distutils: language = C++
+"""
 import time
 
 from libcpp.vector cimport vector
@@ -15,31 +21,54 @@ ctypedef map[pair_t, double] rate_map_t
 cdef extern from "ngt.hpp" namespace "graph_ns":
     cdef cppclass cNGT "graph_ns::NGT":
         cNGT(rate_map_t &, stdlist[node_id] &, stdlist[node_id] &) except +
-        void compute()
-        double get_rate_AB()
-        double get_rate_BA()
-        void set_node_occupation_probabilities(map[node_id, double] &)
+        void compute() except +
+        double get_rate_AB() except +
+        double get_rate_BA() except +
+        void set_node_occupation_probabilities(map[node_id, double] &) except +
+        void set_debug() except +
 
 
 
-cdef make(rate_constants):
-    cdef map[node_id, double] Peq
-    Peq[1] = 0.
-    
-    cdef pair[node_id, node_id] p
-    cdef map[pair_t, double] rates
-    rates[pair_t(1, 2)] = 1.
 
 cdef class BaseNGT(object):
     cdef cNGT* thisptr
     cdef node_list
     cdef node2id
     time_solve = 0.
+    """
+    class to apply the graph reduction method for finding transition rates between two groups of nodes
     
-    def __cinit__(self, rates, A, B, weights=None):
+    Parameters
+    ----------
+    rate_constants : dict
+        a dictionary of rates.  the keys are tuples of nodes (u,v), the values
+        are the rates.
+        
+            rate_uv = rate[(u,v)]
+        
+    A, B : iterables
+        Groups of nodes specifying the reactant and product groups.  The rates
+        returned will be the rate from A to B and vice versa.
+    weights : dict
+        Dictionary with nodes as keys and weights as values.  The weights are
+        the equilibrium occupation probabilities of the nodes in A and B.  They
+        are used to do the weighted mean for the final average over inverse
+        mean first passage times.
+    
+    Notes
+    -----
+    This follows the new graph transformation procedure (NGT) described by 
+    David Wales, J. Chem. Phys., 2009 http://dx.doi.org/10.1063/1.3133782
+    
+    The rate, rAB computed by this calculation (returned by
+    self.get_final_rates) is the inverse mean first passage time averaged over
+    the states in A
+    
+    """
+    def __cinit__(self, rate_constants, A, B, debug=False, weights=None):
         # assign ids to all the nodes
         nodes = set()
-        for u, v in rates.iterkeys():
+        for u, v in rate_constants.iterkeys():
             nodes.add(u)
             nodes.add(v)
         self.node_list = list(nodes)
@@ -47,7 +76,7 @@ cdef class BaseNGT(object):
         
         cdef rate_map_t rate_map
         cdef node_id uid, vid
-        for (u, v), k in rates.iteritems():
+        for (u, v), k in rate_constants.iteritems():
             uid = self.node2id[u]
             vid = self.node2id[v]
             rate_map[pair_t(uid, vid)] = k
@@ -72,6 +101,9 @@ cdef class BaseNGT(object):
                     pass
                         
             self.thisptr.set_node_occupation_probabilities(Peq)
+        
+        if debug:
+            self.thisptr.set_debug()
     
     def __dealloc__(self):
         if self.thisptr != NULL:

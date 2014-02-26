@@ -72,6 +72,8 @@ public:
 
     }
 
+    void set_debug() { debug=true; }
+
     template<class Acontainer, class Bcontainer>
     NGT(rate_map_t &rate_constants, Acontainer const &A, Bcontainer const &B) :
         _graph(new Graph()),
