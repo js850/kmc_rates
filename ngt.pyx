@@ -1,6 +1,3 @@
-# distutils: language = c++
-# distutils: sources = source/ngt.hpp
-# distutils: language = C++
 """
 # distutils: language = C++
 """
@@ -12,13 +9,13 @@ from libcpp.pair cimport pair
 from libcpp.list cimport list as stdlist
 
 
-cdef extern from "graph.hpp" namespace "graph_ns":
+cdef extern from "source/graph.hpp" namespace "graph_ns":
     ctypedef unsigned long node_id
 
 ctypedef pair[node_id, node_id] pair_t
 ctypedef map[pair_t, double] rate_map_t
 
-cdef extern from "ngt.hpp" namespace "graph_ns":
+cdef extern from "source/ngt.hpp" namespace "graph_ns":
     cdef cppclass cNGT "graph_ns::NGT":
         cNGT(rate_map_t &, stdlist[node_id] &, stdlist[node_id] &) except +
         void compute() except +
@@ -31,10 +28,6 @@ cdef extern from "ngt.hpp" namespace "graph_ns":
 
 
 cdef class BaseNGT(object):
-    cdef cNGT* thisptr
-    cdef node_list
-    cdef node2id
-    time_solve = 0.
     """
     class to apply the graph reduction method for finding transition rates between two groups of nodes
     
@@ -65,6 +58,10 @@ cdef class BaseNGT(object):
     the states in A
     
     """
+    cdef cNGT* thisptr
+    cdef node_list
+    cdef node2id
+    time_solve = 0.
     def __cinit__(self, rate_constants, A, B, debug=False, weights=None):
         # assign ids to all the nodes
         nodes = set()
