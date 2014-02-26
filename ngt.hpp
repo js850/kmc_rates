@@ -151,8 +151,6 @@ public:
 //        cout << intermediates.size() << "\n";
 //        cout << nodes.size() << "\n";
         assert(intermediates.size() + _A.size() + _B.size() == _graph->number_of_nodes());
-
-
     }
 
     void set_node_occupation_probabilities(std::map<node_id, double> &Peq){
@@ -294,17 +292,26 @@ public:
     }
 
     void reduce_all_in_group(std::set<node_ptr> &to_remove, std::set<node_ptr> & to_keep){
-    	std::set<node_id> Aids, Bids;
+    	std::list<node_id> Aids, Bids;
+    	// copy the ids of the nodes in to_remove into Aids
     	for (std::set<node_ptr>::iterator iter = to_remove.begin(); iter != to_remove.end(); ++iter){
-    		Aids.insert((*iter)->id());
+    		Aids.push_back((*iter)->id());
     	}
+        // copy the ids of the nodes in to_keep into Bids
     	for (std::set<node_ptr>::iterator iter = to_keep.begin(); iter != to_keep.end(); ++iter){
-    		Bids.insert((*iter)->id());
+    		Bids.push_back((*iter)->id());
     	}
-    	for (std::set<node_id>::iterator iter = Aids.begin(); iter != Aids.end(); ++iter){
+
+    	// for each node in Aids
+    	for (std::list<node_id>::iterator iter = Aids.begin(); iter != Aids.end(); ++iter){
+    	    /*
+    	     * Create a new graph and a new NGT object new_ngt.  Pass x as A and Bids as B.  new_ngt will
+    	     * remove all `intermediates`, i.e. everything in Aids except x.  Then save the final
+    	     * value of 1-Pxx and tau_x.
+    	     */
     		node_id x = *iter;
-    		std::set<node_id> newAids;
-    		newAids.insert(x);
+    		std::list<node_id> newAids;
+    		newAids.push_back(x);
 
     		Graph new_graph(*_graph);
     		NGT new_ngt(new_graph, newAids, Bids);
