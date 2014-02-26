@@ -112,6 +112,9 @@ cdef class BaseNGT(object):
         self.thisptr.compute()
         self.time_solve = time.clock() - t0 
     
+    def compute_rates(self):
+        return self.compute()
+    
     def get_rate_AB(self):
         return self.thisptr.get_rate_AB()
     def get_rate_BA(self):
