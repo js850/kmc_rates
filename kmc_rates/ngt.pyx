@@ -9,13 +9,13 @@ from libcpp.pair cimport pair
 from libcpp.list cimport list as stdlist
 
 
-cdef extern from "source/graph.hpp" namespace "graph_ns":
+cdef extern from "kmc_rates/graph.hpp" namespace "graph_ns":
     ctypedef unsigned long node_id
 
 ctypedef pair[node_id, node_id] pair_t
 ctypedef map[pair_t, double] rate_map_t
 
-cdef extern from "source/ngt.hpp" namespace "graph_ns":
+cdef extern from "kmc_rates/ngt.hpp" namespace "graph_ns":
     cdef cppclass cNGT "graph_ns::NGT":
         cNGT(rate_map_t &, stdlist[node_id] &, stdlist[node_id] &) except +
         void compute() except +
