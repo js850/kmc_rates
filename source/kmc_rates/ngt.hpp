@@ -31,6 +31,7 @@ public:
 
     std::map<node_id, double> final_omPxx;
     std::map<node_id, double> final_tau;
+    std::map<node_id, double> final_committors;
     std::map<node_id, double> weights; // normally these are equilibrium occupation probabilities
 
 
@@ -43,6 +44,12 @@ public:
         }
     }
 
+    /*
+     * construct the NGT from an existing graph.
+     *
+     * The graph will be used directly, without copying.  Any modifications
+     * will be reflected in the passed graph
+     */
     template<class Acontainer, class Bcontainer>
     NGT(Graph & graph, Acontainer const &A, Bcontainer const &B) :
         _graph(& graph),
@@ -74,6 +81,9 @@ public:
 
     void set_debug() { debug=true; }
 
+    /*
+     * construct the NGT from a map of rate constants.
+     */
     template<class Acontainer, class Bcontainer>
     NGT(rate_map_t &rate_constants, Acontainer const &A, Bcontainer const &B) :
         _graph(new Graph()),
@@ -159,6 +169,11 @@ public:
         weights.insert(Peq.begin(), Peq.end());
     }
 
+    /*
+     * Sort the list of intermediates.
+     *
+     * This is done because it is faster to remove nodes with fewer connections first.
+     */
     void sort_intermediates(){
         node_ptr x = *intermediates.begin();
         if (debug){
@@ -169,12 +184,26 @@ public:
         }
     }
     
+    /*
+     * accessors for graph properties P and tau attached to the edges and nodes.
+     */
     inline double get_tau(node_ptr u){ return u->tau; }
     inline double get_P(edge_ptr edge){ return edge->P; }
-    edge_ptr get_node_self_edge(node_ptr u){ 
-        return u->get_successor_edge(u);
-    }
+    inline void set_tau(node_ptr u, double tau){ u->tau = tau; }
+    inline void set_P(edge_ptr edge, double P){ edge->P = P; }
+
+    /*
+     * This returns P for the edge u->u.  This is slow because the edge must first be found.
+     */
     double get_node_P(node_ptr u){ return get_P(u->get_successor_edge(u)); }
+
+    /*
+     * This returns 1.-P for the edge u->u.
+     *
+     * If P is close to one compute 1.-P directly by summing P over all the out edges of u.
+     * This is extremely important for numerical precision.  It is this ability to deal precisely
+     * with both P and 1.-P that makes this method more stable then linear algebra methods.
+     */
     double get_node_one_minus_P(node_ptr u){
         edge_ptr uu = u->get_successor_edge(u);
         double Puu = get_P(uu);
@@ -193,13 +222,13 @@ public:
         }
     }
 
-    inline void set_tau(node_ptr u, double tau){ u->tau = tau; }
-    inline void set_P(edge_ptr edge, double P){ edge->P = P; }
 
     /*
-     * node x is being deleted, so update P and tau for node u
+     * node x is being deleted, so update tau for node u
+     *
+     * tau_u -> tau_u + Pux * tau_x / (1-Pxx)
      */
-    void update_tau(edge_ptr ux, double omPxx, double tau_x){
+    void update_node(edge_ptr ux, double omPxx, double tau_x){
         node_ptr u = ux->tail();
         double Pux = get_P(ux);
         double tau_u = get_tau(u);
@@ -210,14 +239,22 @@ public:
         set_tau(u, new_tau_u);
     }
 
+    /*
+     * add an edge to the graph and set P to 0
+     */
     edge_ptr add_edge(node_ptr u, node_ptr v){
        edge_ptr edge = _graph->_add_edge(u, v);
        set_P(edge, 0.);
        return edge;
     }
 
-    void update_edge(node_ptr u, node_ptr v, node_ptr x, edge_ptr ux, edge_ptr xv, double omPxx){
-        edge_ptr uv = u->get_successor_edge(v);
+    /*
+     * Node x is being deleted, so update P for the edge u -> v
+     *
+     * Puv -> Puv + Pux * Pxv / (1-Pxx)
+     */
+    void update_edge(node_ptr u, node_ptr v, edge_ptr ux, edge_ptr xv, double omPxx){
+        edge_ptr uv = u->get_successor_edge(v);  // this is slow
         if (uv == NULL){
             uv = add_edge(u, v);
         }
@@ -237,6 +274,9 @@ public:
         set_P(uv, newPuv);
     }
 
+    /*
+     * remove node x from the graph and update its neighbors
+     */
     void remove_node(node_ptr x){
         if (debug){
             std::cout << "removing node " << x->id() << "\n";
@@ -250,7 +290,7 @@ public:
         for (eiter = x->in_edge_begin(); eiter != x->in_edge_end(); eiter++){
             edge_ptr edge = *eiter;
             if (edge->tail() != edge->head()){
-                update_tau(edge, omPxx, taux);
+                update_node(edge, omPxx, taux);
             }
         }
 
@@ -269,7 +309,7 @@ public:
 //                if (u == v){
 //                    continue;
 //                }
-                update_edge(u, v, x, ux, xv, omPxx);
+                update_edge(u, v, ux, xv, omPxx);
             }
         }
 
@@ -278,6 +318,9 @@ public:
 
     }
 
+    /*
+     * remove all intermediates from the graph
+     */
     void remove_intermediates(){
         while (intermediates.size() > 0){
             sort_intermediates();
@@ -289,10 +332,19 @@ public:
         }
     }
 
+    /*
+     * phase one of the rate calculation is to remove all intermediate nodes
+     */
     void phase_one(){
     	remove_intermediates();
     }
 
+    /*
+     * Compute final_tau and final_omPxx for each node in to_remove
+     *
+     * For each node x in to_remove, this involves removing all other nodes in to_remove, and
+     * getting the results from this reduced graph.
+     */
     void reduce_all_in_group(std::set<node_ptr> &to_remove, std::set<node_ptr> & to_keep){
     	std::list<node_id> Aids, Bids;
     	// copy the ids of the nodes in to_remove into Aids
@@ -352,16 +404,25 @@ public:
     	assert(Aids.size() == 0);
     }
 
+    /*
+     * Phase two, compute final_tau and final_omPxx for each x separately in _A and in _B
+     */
     void phase_two(){
     	reduce_all_in_group(_A, _B);
     	reduce_all_in_group(_B, _A);
     }
 
+    /*
+     * do phase one and phase two of the rate calculation
+     */
     void compute(){
         phase_one();
         phase_two();
     }
 
+    /*
+     * compute the final rate A->B or B->A from final_tau and final_omPxx
+     */
     double _get_rate_final(std::set<node_ptr> &A){
         double rate_sum = 0.;
         double norm = 0.;
@@ -379,10 +440,16 @@ public:
         return rate_sum / norm;
     }
 
+    /*
+     * Return the rate A->B
+     */
     double get_rate_AB(){
         return _get_rate_final(_A);
     }
 
+    /*
+     * Return the rate B->A
+     */
     double get_rate_BA(){
         return _get_rate_final(_B);
     }
