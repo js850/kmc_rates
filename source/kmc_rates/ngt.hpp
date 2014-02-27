@@ -29,8 +29,9 @@ public:
     bool debug;
     bool own_graph; // if this is true then delete graph in the destructor
 
-    std::map<node_id, double> final_omPxx;
-    std::map<node_id, double> final_tau;
+    std::map<node_id, double> initial_tau; // for computing steady state rates
+    std::map<node_id, double> final_omPxx; // for computing kmc rates
+    std::map<node_id, double> final_tau; // for computing kmc rates
     std::map<node_id, double> final_committors;
     std::map<node_id, double> weights; // normally these are equilibrium occupation probabilities
 
@@ -115,6 +116,7 @@ public:
             node_ptr x = *uiter;
             double tau_x = 1. / sum_out_rates[x];
             set_tau(x, tau_x);
+            initial_tau[x->id()] = tau_x;
             edge_ptr xx = _graph->_add_edge(x, x);
             set_P(xx, 0.);
         }
@@ -452,6 +454,48 @@ public:
      */
     double get_rate_BA(){
         return _get_rate_final(_B);
+    }
+
+    double _get_rate_SS(std::set<node_ptr> & A, std::set<node_ptr> & B){
+        double kAB = 0.;
+        double norm = 0.;
+        for (std::set<node_ptr>::iterator aiter = A.begin(); aiter != A.end(); ++aiter){
+            node_ptr a = *aiter;
+            // compute PaB the probability that this node goes directly to B
+            double PaB = 0.;
+            for (Node::edge_iterator eiter = a->out_edge_begin(); eiter != a->out_edge_end(); ++eiter){
+                edge_ptr ab = *eiter;
+                node_ptr b = ab->head();
+                if (B.find(b) != B.end()){
+                    PaB += get_P(ab);
+                }
+            }
+            double weight = 1.;
+            if (weights.size() > 0){
+                weight = weights.at(a->id());
+            }
+            kAB += weight * PaB / initial_tau.at(a->id());
+            norm += weight;
+        }
+        return kAB / norm;
+    }
+
+    /*
+     * Return the steady state rate A->B
+     *
+     * this must be called after calling phase_one
+     */
+    double get_rate_AB_SS(){
+        return _get_rate_SS(_A, _B);
+    }
+
+    /*
+     * Return the steady state rate B->A
+     *
+     * this must be called after calling phase_one
+     */
+    double get_rate_BA_SS(){
+        return _get_rate_SS(_B, _A);
     }
 
 

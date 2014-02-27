@@ -21,6 +21,8 @@ cdef extern from "kmc_rates/ngt.hpp" namespace "graph_ns":
         void compute() except +
         double get_rate_AB() except +
         double get_rate_BA() except +
+        double get_rate_AB_SS() except +
+        double get_rate_BA_SS() except +
         void set_node_occupation_probabilities(map[node_id, double] &) except +
         void set_debug() except +
 
@@ -119,6 +121,10 @@ cdef class BaseNGT(object):
         return self.thisptr.get_rate_AB()
     def get_rate_BA(self):
         return self.thisptr.get_rate_BA()
+    def get_rate_AB_SS(self):
+        return self.thisptr.get_rate_AB_SS()
+    def get_rate_BA_SS(self):
+        return self.thisptr.get_rate_BA_SS()
         
     
 
