@@ -4,6 +4,14 @@ import networkx as nx
 
 from kmc_rates import GraphReduction, kmcgraph_from_rates
 
+def make_rates_complete(nnodes=10):
+    rates = dict()
+    for i in range(nnodes):
+        for j in range(i+1,nnodes):
+            rates[(i,j)] = float(i+j) / (i+1)
+            rates[(j,i)] = float(i+j) / (j+1)
+    return rates
+
 
 class _MakeRandomGraph(object):
     def __init__(self, nnodes=10, nedges=20, node_set=None):
@@ -39,7 +47,7 @@ class _MakeRandomGraph(object):
         nedges = min(self.nedges, nnodes*(nnodes-1))
         while(len(self.rates) < nedges):
             self.add_random_edge()
-        print "made random graph with", len(self.nodes), "nodes and", len(self.rates) / 2, "edges"
+#        print "made random graph with", len(self.nodes), "nodes and", len(self.rates) / 2, "edges"
         return self.rates
     
     def run(self):

@@ -81,6 +81,7 @@ public:
     }
 
     void set_debug() { debug=true; }
+    std::map<node_id, double> const & get_committors() { return final_committors; }
 
     /*
      * construct the NGT from a map of rate constants.
@@ -358,6 +359,8 @@ public:
     		Bids.push_back((*iter)->id());
     	}
 
+    	// note: should we sort the minima in to_remove?
+
     	if (Aids.size() > 1){
             Graph working_graph(*_graph);
             std::list<node_id> empty_list;
@@ -417,7 +420,7 @@ public:
     /*
      * do phase one and phase two of the rate calculation
      */
-    void compute(){
+    void compute_rates(){
         phase_one();
         phase_two();
     }
@@ -496,6 +499,111 @@ public:
      */
     double get_rate_BA_SS(){
         return _get_rate_SS(_B, _A);
+    }
+
+    /*
+     * sum the probabilities of the out edges of x that end in B normalized by 1-Pxx
+     */
+    double get_PxB(node_ptr x, std::set<node_id> & B){
+        double PxB = 0.;
+        double Pxx = 0.;
+        double omPxx = 0.;
+        for (Node::edge_iterator eiter = x->out_edge_begin(); eiter != x->out_edge_end(); ++eiter){
+            edge_ptr xb = *eiter;
+            node_ptr b = xb->head();
+            double Pxb = get_P(xb);
+            if (b == x){
+                Pxx = Pxb;
+            } else {
+                omPxx += Pxb;
+            }
+            if (B.find(b->id()) != B.end()){
+                PxB += Pxb;
+            }
+        }
+        if (Pxx < 0.9){
+            omPxx = 1. - Pxx;
+        }
+        return PxB / omPxx;
+    }
+
+    /*
+     * compute the committors for all intermediates
+     *
+     */
+    void _remove_nodes_and_compute_committors(
+            std::list<node_ptr> &to_remove, std::set<node_ptr> &to_keep, std::set<node_ptr> const &committor_targets){
+        // make a copy of to_remove.  Store the id's
+        std::list<node_id> to_remove_cp;
+        for (typename std::list<node_ptr>::iterator iter = to_remove.begin(); iter != to_remove.end(); ++iter){
+            to_remove_cp.push_back((*iter)->id());
+        }
+
+        // copy the nodes from to_keep and committor_target into a new set Bids;
+        // make a copy of committor_target
+        std::set<node_id> Bids;
+        std::set<node_id> targets;
+        // create a set of Bids
+        for (typename std::set<node_ptr>::iterator iter = to_keep.begin(); iter != to_keep.end(); ++iter){
+            Bids.insert((*iter)->id());
+        }
+        for (typename std::set<node_ptr>::const_iterator iter = committor_targets.begin(); iter != committor_targets.end(); ++iter){
+            Bids.insert((*iter)->id());
+            targets.insert((*iter)->id());
+        }
+
+        // note: should we sort the nodes in to_remove?
+
+        while (to_remove_cp.size() > 0){
+            /*
+             * Create a new graph and a new NGT object new_ngt.  Pass x as A and Bids as B.  new_ngt will
+             * remove all `intermediates`, i.e. everything in to_remove except x.  Then save the final
+             * value of 1-Pxx and tau_x.
+             */
+            // choose an element x and remove it from the list
+            node_id x = to_remove_cp.back();
+            to_remove_cp.pop_back();
+            std::list<node_id> Aids;
+            Aids.push_back(x);
+
+            // make a copy of _graph
+            Graph new_graph(*_graph);
+
+            // remove all to_remove nodes from new_graph except x
+            NGT new_ngt(new_graph, Aids, Bids);
+            new_ngt.remove_intermediates();
+            node_ptr xptr = new_graph.get_node(x);
+            final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
+            final_tau[x] = new_ngt.get_tau(xptr);
+            if (! targets.empty()){
+                final_committors[x] = new_ngt.get_PxB(xptr, targets);
+            }
+
+            // delete node x from _graph
+            this->remove_node(_graph->get_node(x));
+        }
+    }
+
+    /*
+     * Compute the rate from A->B and committor probabilities for all intermediates
+     *
+     * This is much slower than compute_rates.
+     * If you don't want committors use that function instead
+     */
+    void compute_rates_and_committors(){
+        _remove_nodes_and_compute_committors(intermediates, _A, _B);
+        intermediates.clear();
+
+        phase_two();
+
+        // set the committor for nodes in A to 0
+        for (std::set<node_ptr>::iterator xiter = _A.begin(); xiter != _A.end(); ++xiter){
+            final_committors[(*xiter)->id()] = 0.;
+        }
+        // set the committor for nodes in B to 1
+        for (std::set<node_ptr>::iterator xiter = _B.begin(); xiter != _B.end(); ++xiter){
+            final_committors[(*xiter)->id()] = 1.;
+        }
     }
 
 

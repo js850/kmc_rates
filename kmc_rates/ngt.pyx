@@ -18,13 +18,15 @@ ctypedef map[pair_t, double] rate_map_t
 cdef extern from "kmc_rates/ngt.hpp" namespace "graph_ns":
     cdef cppclass cNGT "graph_ns::NGT":
         cNGT(rate_map_t &, stdlist[node_id] &, stdlist[node_id] &) except +
-        void compute() except +
+        void compute_rates() except +
+        void compute_rates_and_committors() except +
         double get_rate_AB() except +
         double get_rate_BA() except +
         double get_rate_AB_SS() except +
         double get_rate_BA_SS() except +
         void set_node_occupation_probabilities(map[node_id, double] &) except +
         void set_debug() except +
+        map[node_id, double] get_committors() except + # as reference ?
 
 
 
@@ -109,13 +111,16 @@ cdef class BaseNGT(object):
             del self.thisptr
             self.thisptr = NULL
     
-    def compute(self):
+    def compute_rates(self):
         t0 = time.clock()
-        self.thisptr.compute()
+        self.thisptr.compute_rates()
         self.time_solve = time.clock() - t0 
     
-    def compute_rates(self):
-        return self.compute()
+    def compute_rates_and_committors(self):
+        t0 = time.clock()
+        self.thisptr.compute_rates_and_committors()
+        self.time_solve = time.clock() - t0 
+    
     
     def get_rate_AB(self):
         return self.thisptr.get_rate_AB()
@@ -125,7 +130,15 @@ cdef class BaseNGT(object):
         return self.thisptr.get_rate_AB_SS()
     def get_rate_BA_SS(self):
         return self.thisptr.get_rate_BA_SS()
-        
+    
+    def get_committors(self):
+        cdef map[node_id, double] qmap = self.thisptr.get_committors() # as reference?
+        committors = dict()
+        for node, nid in self.node2id.iteritems():
+            committors[node] = qmap.at(nid)
+        return committors
+            
+          
     
 
 class NGT(BaseNGT):
