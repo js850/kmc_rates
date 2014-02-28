@@ -1,5 +1,23 @@
 #ifndef _GRAPH_CPP_H_
 #define _GRAPH_CPP_H_
+/*
+ * This implements a lightweight directed graph.  This was primarily designed for
+ * use in the New Graph Transformation (NGT) method.  This graph was optimized
+ * for the following actions to be as fast as possible
+ *
+ *     * removing nodes
+ *     * iteration over out edges
+ *     * iteration over in edges
+ *     * return the edge u->v
+ *     * access node property `double `
+ *     * access edge property `double P`
+ *     * allow for loop edges u->u
+ *     * copy graph
+ *
+ * The requirement for fast removing of nodes means I can't assign each node
+ * an index and use std::vector's.  This is at odds with fast access to the edge u->v.
+ * The solution here is to use a std::map Node.successor_edge_
+ */
 
 #include <cstdlib>
 #include <iostream>
@@ -85,6 +103,10 @@ public:
     size_t in_degree() const { return in_edge_list_.size(); }
     size_t in_out_degree() const { return out_degree() + in_degree(); }
     std::set<node_ptr> in_out_neighbors();
+
+    /*
+     * return the edge u->v
+     */
     edge_ptr get_successor_edge(node_ptr v){
         successor_map_t::iterator miter = successor_map_.find(v);
         if (miter == successor_map_.end()){

@@ -1,5 +1,15 @@
 #ifndef _NGT_HPP_
 #define _NGT_HPP_
+/*
+ *
+ * This implements the New Graph Transformation method (NGT) described in
+ *
+ * David Wales, J. Chem. Phys., 2009 http://dx.doi.org/10.1063/1.3133782
+ *
+ * This procedure computes transition rates and committor probabilities for
+ * transition network (kinetic monte carlo).
+ */
+
 
 #include <cstdlib>
 #include <iostream>
