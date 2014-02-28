@@ -12,6 +12,7 @@ class TestNgtCpp3(unittest.TestCase):
         self.rates = _three_state_rates()
         # all rates after graph renormalization should be 1.0
         self.final_rate = 1.0
+        self.final_rate_SS = 1.5
 
     def _test_rate(self, i, j):
         reducer = NGT(self.rates, [i], [j], debug=True)
@@ -20,6 +21,11 @@ class TestNgtCpp3(unittest.TestCase):
         rBA = reducer.get_rate_BA()
         self.assertAlmostEqual(rAB, self.final_rate, 7)
         self.assertAlmostEqual(rBA, self.final_rate, 7)
+
+        rAB_SS = reducer.get_rate_AB_SS()
+        rBA_SS = reducer.get_rate_BA_SS()
+        self.assertAlmostEqual(rAB_SS, self.final_rate_SS, 7)
+        self.assertAlmostEqual(rAB_SS, self.final_rate_SS, 7)
 
     def test01(self):
         self._test_rate(0,1)
