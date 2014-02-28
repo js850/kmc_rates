@@ -8,7 +8,6 @@ from libcpp.map cimport map
 from libcpp.pair cimport pair
 from libcpp.list cimport list as stdlist
 
-
 cdef extern from "kmc_rates/graph.hpp" namespace "graph_ns":
     ctypedef unsigned long node_id
 
@@ -39,10 +38,7 @@ cdef class BaseNGT(object):
     ----------
     rate_constants : dict
         a dictionary of rates.  the keys are tuples of nodes (u,v), the values
-        are the rates.
-        
-            rate_uv = rate[(u,v)]
-        
+        are the rate constants from u to v.
     A, B : iterables
         Groups of nodes specifying the reactant and product groups.  The rates
         returned will be the rate from A to B and vice versa.
@@ -57,7 +53,7 @@ cdef class BaseNGT(object):
     This follows the new graph transformation procedure (NGT) described by 
     David Wales, J. Chem. Phys., 2009 http://dx.doi.org/10.1063/1.3133782
     
-    The rate, rAB computed by this calculation (returned by
+    The rate, k_AB computed by this calculation (returned by
     self.get_final_rates) is the inverse mean first passage time averaged over
     the states in A
     
@@ -67,6 +63,7 @@ cdef class BaseNGT(object):
     cdef node2id
     time_solve = 0.
     def __cinit__(self, rate_constants, A, B, debug=False, weights=None):
+        # all this mess is to construct the c++ objects that will be passed to the C++ NGT
         # assign ids to all the nodes
         nodes = set()
         for u, v in rate_constants.iterkeys():
@@ -75,6 +72,7 @@ cdef class BaseNGT(object):
         self.node_list = list(nodes)
         self.node2id = dict(( (u, i) for i, u in enumerate(self.node_list) ))
         
+        # construct the std::map rate_map
         cdef rate_map_t rate_map
         cdef node_id uid, vid
         for (u, v), k in rate_constants.iteritems():
@@ -82,6 +80,7 @@ cdef class BaseNGT(object):
             vid = self.node2id[v]
             rate_map[pair_t(uid, vid)] = k
         
+        # construct the std::list _A and _B
         cdef stdlist[node_id] _A, _B
         for u in A:
             uid = self.node2id[u]
@@ -90,8 +89,10 @@ cdef class BaseNGT(object):
             uid = self.node2id[u]
             _B.push_back(uid)
             
-        
+        # allocate memory and initialize the NGT object
         self.thisptr = new cNGT(rate_map, _A, _B)
+        
+        # pass the weights
         cdef map[node_id, double] Peq 
         if weights is not None:
             for u, p in weights.iteritems():
@@ -103,6 +104,7 @@ cdef class BaseNGT(object):
                         
             self.thisptr.set_node_occupation_probabilities(Peq)
         
+        # set the debug flag
         if debug:
             self.thisptr.set_debug()
     
@@ -112,26 +114,39 @@ cdef class BaseNGT(object):
             self.thisptr = NULL
     
     def compute_rates(self):
+        """compute the rates from A->B and B->A"""
         t0 = time.clock()
         self.thisptr.compute_rates()
         self.time_solve = time.clock() - t0 
     
     def compute_rates_and_committors(self):
+        """compute the rates from A->B and B->A and the committors for all the intermediates
+        
+        This is much slower than compute_rates.  Only use this function if you 
+        want the committors
+        """
         t0 = time.clock()
         self.thisptr.compute_rates_and_committors()
         self.time_solve = time.clock() - t0 
     
-    
     def get_rate_AB(self):
+        """return the rate from A->B"""
         return self.thisptr.get_rate_AB()
+    
     def get_rate_BA(self):
+        """return the rate from B->A"""
         return self.thisptr.get_rate_BA()
+    
     def get_rate_AB_SS(self):
+        """return the steady state rate from A->B"""
         return self.thisptr.get_rate_AB_SS()
+    
     def get_rate_BA_SS(self):
+        """return the steady state rate from B->A"""
         return self.thisptr.get_rate_BA_SS()
     
     def get_committors(self):
+        """return a dictionary of the committor probabilities"""
         cdef map[node_id, double] qmap = self.thisptr.get_committors() # as reference?
         committors = dict()
         for node, nid in self.node2id.iteritems():
