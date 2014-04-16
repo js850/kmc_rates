@@ -60,11 +60,17 @@ def compute_sum_out_rates(rates):
 
 
 class EstimateRates(object):
-    """make a rough estimate of the rates
+    """make a rough estimate of the rates at very low temperatures
     
     This is aimed to be used as an initial guess for the rate solver.
     Equivalently it can be used to precondition the matrix in the system of
     linear equations
+    
+    Notes
+    -----
+    The idea is that at very low temperatures a trajectory will first roll down hill
+    to the lowest energy minimum it can get to.  The folding rate will be given by 
+    the time to get from the lowest energy down hill minimum to the target structure.
     """
     def __init__(self, rate_constants, Peq, B):
         self.union_find = nx.utils.UnionFind()
@@ -91,7 +97,8 @@ class EstimateRates(object):
             if x != b:
                 self.union_find.union(x, b)
         
-        #sort edges by rate with biggest rate to the left
+        # sort edges with smallest free energy to the left.
+        # the free energy is proportional to k_uv * Peq[u]
         edges = [((u,v), k*self.Peq[u]) for (u,v), k in 
                  self.rate_constants.iteritems() if u<v]
         edges.sort(key=lambda uvk: -uvk[1])
@@ -110,16 +117,19 @@ class EstimateRates(object):
                     new_node = u
                 
                 # all nodes connected to new_node are newly connected to the B nodes
-                tsrate = self.rate_constants[(u,v)] * self.Peq[u]
                 if new_node not in graph:
                     graph.add_node(new_node)
                 nodes = nx.node_connected_component(graph, new_node)
+                # The edge u, v is the transition state with the smallest free energy 
+                # that connects these nodes to B.  This transition state is the bottleneck  
+                ts_free_energy = self.rate_constants[(u,v)] * self.Peq[u]
 #                print len(nodes), "nodes connecting to B"
+                # find the node in this group with the smallest free energy (largest probability)
                 P = max([self.Peq[x] for x in nodes])
                 for x in nodes:
                     assert x not in rate_estimates
-                    rate_estimates[x] = tsrate / P
-#                    rate_estimates[x] = tsrate / self.Peq[x]
+                    rate_estimates[x] = ts_free_energy / P
+#                    rate_estimates[x] = ts_free_energy / self.Peq[x]
                 
                 graph.remove_nodes_from(nodes)
             else:
@@ -458,4 +468,5 @@ class TwoStateRates(object):
         """compute the committors""" 
         self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
         self.committor_dict = self.committor_computer.compute_committors()
+        return self.committor_dict
         
