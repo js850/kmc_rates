@@ -4,7 +4,7 @@ from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
 
 depends = ["source/graph.hpp", "source/ngt.hpp"]
-extra_compile_args = ["-Wall", "-Wextra", "-g", "-O2", '-funroll-loops', "-mtune=native"]
+extra_compile_args = ["-Wall", "-Wextra", "-g", "-O2", '-funroll-loops', "-mtune=native", "-std=c++0x"]
 extra_link_args = []
 include_dirs = ["source/"]
 #extra_link_args = ["-lprofiler"]
