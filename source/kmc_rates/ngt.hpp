@@ -17,6 +17,7 @@
 #include <queue>
 #include <assert.h>
 #include <stdexcept>
+#include <memory>
 
 #include "graph.hpp"
 
@@ -33,7 +34,7 @@ class NGT {
 public:
     typedef std::map<std::pair<node_id, node_id>, double> rate_map_t;
 
-    Graph * _graph;
+    std::shared_ptr<Graph> _graph;
     std::set<node_ptr> _A, _B;
     std::list<node_ptr> intermediates; //this will an up to date list of nodes keyed by the node degree
     bool debug;
@@ -49,10 +50,6 @@ public:
     
     ~NGT()
     {
-        if (own_graph && _graph != NULL){
-            delete _graph;
-            _graph = NULL;
-        }
     }
 
     /*
@@ -62,8 +59,8 @@ public:
      * will be reflected in the passed graph
      */
     template<class Acontainer, class Bcontainer>
-    NGT(Graph & graph, Acontainer const &A, Bcontainer const &B) :
-        _graph(& graph),
+    NGT(std::shared_ptr<Graph> graph, Acontainer const &A, Bcontainer const &B) :
+        _graph(graph),
         debug(false),
         own_graph(false)
     {
@@ -372,8 +369,10 @@ public:
         // note: should we sort the minima in to_remove?
 
         if (Aids.size() > 1){
-            Graph working_graph(*_graph);
+            // make a copy of _graph called working_graph
+            auto working_graph = std::make_shared<Graph> (*_graph);
             std::list<node_id> empty_list;
+            // make an ngt object for working_graph
             NGT working_ngt(working_graph, std::list<node_id>(), Bids);
             while (Aids.size() > 1){
                 /*
@@ -388,23 +387,23 @@ public:
                 newAids.push_back(x);
 
                 // make a new graph from the old graph
-                Graph new_graph(working_graph);
+                auto new_graph = std::make_shared<Graph>(*working_graph);
 
                 // remove all nodes from new_graph except x
                 NGT new_ngt(new_graph, newAids, Bids);
                 new_ngt.remove_intermediates();
-                node_ptr xptr = new_graph.get_node(x);
+                node_ptr xptr = new_graph->get_node(x);
                 final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
                 final_tau[x] = new_ngt.get_tau(xptr);
 
                 // delete node x from the old_graph
-                working_ngt.remove_node(working_graph.get_node(x));
+                working_ngt.remove_node(working_graph->get_node(x));
             }
             // there is one node left. we can just read off the results
             assert(Aids.size() == 1);
             node_id x = Aids.back();
             Aids.pop_back();
-            node_ptr xptr = working_graph.get_node(x);
+            node_ptr xptr = working_graph->get_node(x);
             final_omPxx[x] = working_ngt.get_node_one_minus_P(xptr);
             final_tau[x] = working_ngt.get_tau(xptr);
 
@@ -577,12 +576,12 @@ public:
             Aids.push_back(x);
 
             // make a copy of _graph
-            Graph new_graph(*_graph);
+            auto new_graph = std::make_shared<Graph>(*_graph);
 
             // remove all to_remove nodes from new_graph except x
             NGT new_ngt(new_graph, Aids, Bids);
             new_ngt.remove_intermediates();
-            node_ptr xptr = new_graph.get_node(x);
+            node_ptr xptr = new_graph->get_node(x);
             final_omPxx[x] = new_ngt.get_node_one_minus_P(xptr);
             final_tau[x] = new_ngt.get_tau(xptr);
             if (! targets.empty()){
