@@ -40,6 +40,24 @@ color_type color_white = 0;
 color_type color_grey = 1;
 color_type color_black = 4;
 
+template <typename T>
+void add_to_vector_unique(std::vector<T> & vec, T const & val){ 
+    for (auto const & x : vec){
+        if (x == val) return;
+    }
+    vec.push_back(val);
+}
+
+template <typename T>
+void remove_from_vector(std::vector<T> & vec, T const & val){ 
+    for (auto iter = vec.begin(); iter != vec.end(); ++iter){
+        if (*iter == val){
+            vec.erase(iter);
+            return;
+        }
+    }
+}
+
 /**
  * basic class for an edge (arc) in the graph
  */
@@ -63,9 +81,8 @@ public:
  */
 class Node{
 public:
-    typedef std::set<edge_ptr> edge_list;
+    typedef std::vector<edge_ptr> edge_list;
     typedef typename edge_list::iterator edge_iterator;
-    typedef std::map<node_ptr, edge_ptr> successor_map_t;
 private:
     node_id id_;
     edge_list out_edge_list_; // list of outgoing edges
@@ -73,7 +90,6 @@ private:
 
 
 public:
-    successor_map_t successor_map_;
     double tau;
 
     Node(node_id id):
@@ -81,19 +97,21 @@ public:
     {}
 
     void add_out_edge(edge_ptr edge){
-        out_edge_list_.insert(edge);
-        successor_map_[edge->head()] = edge;
+        add_to_vector_unique(out_edge_list_, edge);
     }
     void remove_out_edge(edge_ptr edge){
-        out_edge_list_.erase(edge);
-        successor_map_.erase(edge->head());
+        remove_from_vector(out_edge_list_, edge);
     }
     edge_list & get_out_edges(){ return out_edge_list_; }
     edge_iterator out_edge_begin(){ return out_edge_list_.begin(); }
     edge_iterator out_edge_end(){ return out_edge_list_.end(); }
 
-    void add_in_edge(edge_ptr edge){ in_edge_list_.insert(edge); }
-    void remove_in_edge(edge_ptr edge){ in_edge_list_.erase(edge); }
+    void add_in_edge(edge_ptr edge){ 
+        add_to_vector_unique(in_edge_list_, edge);
+    }
+    void remove_in_edge(edge_ptr edge){ 
+        remove_from_vector(in_edge_list_, edge);
+    }
     edge_list & get_in_edges(){ return in_edge_list_; }
     edge_iterator in_edge_begin(){ return in_edge_list_.begin(); }
     edge_iterator in_edge_end(){ return in_edge_list_.end(); }
@@ -108,12 +126,12 @@ public:
      * return the edge u->v
      */
     edge_ptr get_successor_edge(node_ptr v){
-        successor_map_t::iterator miter = successor_map_.find(v);
-        if (miter == successor_map_.end()){
-            return NULL;
-        } else{
-            return miter->second;
+        for (auto edge : out_edge_list_){
+            if (edge->head() == v){
+                return edge;
+            }
         }
+        return NULL;
     }
 };
 
@@ -255,7 +273,7 @@ public:
             edge->tail()->remove_out_edge(edge);
         }
 
-        Node::edge_list to_delete;
+        std::set<edge_ptr> to_delete;
         to_delete.insert(u->in_edge_begin(), u->in_edge_end());
         to_delete.insert(u->out_edge_begin(), u->out_edge_end());
 
