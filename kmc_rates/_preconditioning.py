@@ -83,8 +83,24 @@ class MSTSpectralDecomposition(object):
 #        E, i, j = max( [(self.get_edge_energy(i,j), i, j) for i, j in izip(path, path[1:])] )
         print "cutting edge", i, j, E
         return E, i, j
-        
-            
+    
+    def compute_kth_eigenvector_components(self, mst, s):
+        """compute the non zero components of the kth eigenvector"""
+        evec = dict()
+        for i in nx.node_connected_component(mst, s):
+            evec[s] = 1.
+        return evec
+    
+    def matricize_eigenvectors(self, evecs):
+        nodes = sorted(self.Ei.iterkeys())
+        node2index = dict(((n, i) for i, n in enumerate(nodes)))
+        eigenvectors = np.zeros([len(nodes), len(nodes)])
+        eigenvectors[:,0] = 1.
+        for k, evec in evecs.iteritems():
+            for node, v in evec.iteritems():
+                i = node2index[node]
+                eigenvectors[i,k] = v
+        return eigenvectors
     
     def run(self):
         mst = self.compute_mst()
@@ -92,6 +108,7 @@ class MSTSpectralDecomposition(object):
         
         u = dict()
         v = dict()
+        evecs = dict()
         delta = np.zeros(len(self.Ei))
         
         k = 0
@@ -133,16 +150,25 @@ class MSTSpectralDecomposition(object):
             # remove the cutting edge
             mst.remove_edge(p, q)
             
+            # Sk
+            evecs[k] = self.compute_kth_eigenvector_components(mst, s)
+            print "evecs[",k,"] = ", evecs[k]
+            
             # recompute u and v
             self.recompute_uv(mst, s, u, v)
             
             sinks.add(s)
         
+        # process eigenvalues
         print delta
 #        evals = np.cumsum(delta)
-        evals = np.exp(-delta / self.T)
-        evals[0] = 0.
-        print "eigenvalues", evals
+        self.eigenvalues = np.exp(-delta / self.T)
+        self.eigenvalues[0] = 0.
+        print "eigenvalues", self.eigenvalues
+        
+        # process eigenvectors
+        self.eigenvectors = self.matricize_eigenvectors(evecs)
+        print self.eigenvectors
         
         
 
@@ -213,14 +239,18 @@ def make_rate_matrix(Ei, Eij, T=.05):
     return m
 
 def get_eigs(Ei, Eij, T=0.05):
+    from pele.utils.hessian import sort_eigs
     m = make_rate_matrix(Ei, Eij, T=T)
     lam, v = np.linalg.eig(m)
+    lam, v = sort_eigs(lam, v)
     print "exact eigenvalues", sorted(-lam)
+    print "exact eigenvectors"
+    print v
 #    print v
 
 def test2():
     np.random.seed(0)
-    Ei, Eij = make_random_energies_complete(7)
+    Ei, Eij = make_random_energies_complete(4)
     print Ei.items()
     print Eij.items()
     T = .02
