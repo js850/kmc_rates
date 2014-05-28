@@ -222,7 +222,12 @@ public:
     {
         assert(node_tail != NULL);
         assert(node_head != NULL);
-        edge_ptr edge = new Edge(node_tail, node_head);
+        // check whether they're already connected
+        edge_ptr edge = node_tail->get_successor_edge(node_head);
+        if (edge != NULL){
+            return edge;
+        }
+        edge = new Edge(node_tail, node_head);
         edge_list_.insert(edge);
         node_tail->add_out_edge(edge);
         node_head->add_in_edge(edge);
