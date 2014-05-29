@@ -36,32 +36,32 @@ class MSTSpectralDecomposition(object):
         except KeyError:
             return self.Eij[(v,u)]
     
-    def find_u(self, mst, s, u, v):
-        u[s] = 0.
-        v[s] = 0. 
+    def compute_barrier_function(self, mst, s, barrier_function, escape_function):
+        barrier_function[s] = 0.
+        escape_function[s] = 0. 
         for parent, child in nx.bfs_edges(mst, s):
             E = self.get_edge_energy(parent, child)
-            if E > u[parent]:
-                u[child] = E
+            if E > barrier_function[parent]:
+                barrier_function[child] = E
             else:
-                u[child] = u[parent]
-            v[child] = u[child] - self.Ei[child]
+                barrier_function[child] = barrier_function[parent]
+            escape_function[child] = barrier_function[child] - self.Ei[child]
     
-    def recompute_uv(self, mst, s, u, v):
+    def recompute_barrier_function(self, mst, s, barrier_function, escape_function):
         unew = dict()
         vnew = dict()
-        self.find_u(mst, s, unew, vnew)
+        self.compute_barrier_function(mst, s, unew, vnew)
         for i, unewi in unew.iteritems():
-            if unewi < u[i]:
-                u[i] = unewi
-            v[i] = min(v[i], u[i] - self.Ei[i])
-        u[s] = 0.
-        v[s] = 0.
+            if unewi < barrier_function[i]:
+                barrier_function[i] = unewi
+            escape_function[i] = min(escape_function[i], barrier_function[i] - self.Ei[i])
+        barrier_function[s] = 0.
+        escape_function[s] = 0.
             
-    def get_connected_sink(self, mst, s1, u):
+    def get_connected_sink(self, mst, s1, barrier_function):
         s2 = None
         for parent, child in nx.bfs_edges(mst, s1):
-            if u[child] == 0.:
+            if barrier_function[child] == 0.:
                 s2 = child
                 break
         if s2 is None:
@@ -69,12 +69,12 @@ class MSTSpectralDecomposition(object):
         assert s2 is not None
         return s2
     
-    def find_cutting_edge(self, mst, s1, u):
-        u1 = u[s1]
+    def find_cutting_edge(self, mst, s1, barrier_function):
+        u1 = barrier_function[s1]
         for parent, child in nx.bfs_edges(mst, s1):
-            print "u[parent], u[child]", s1, ":", parent, child, u[parent], u[child], u1
-            if u[child] < u1:
-                assert u[parent] == u1
+            print "u[parent], u[child]", s1, ":", parent, child, barrier_function[parent], barrier_function[child], u1
+            if barrier_function[child] < u1:
+                assert barrier_function[parent] == u1
                 i, j = child, parent
                 break
         E = self.get_edge_energy(i, j)
@@ -130,26 +130,30 @@ class MSTSpectralDecomposition(object):
         mst = self.compute_mst()
         print self.mst.number_of_edges()
         
-        u = dict() # barrier function
-        v = dict() # escape function
-        evecs = dict()
-        delta = np.zeros(len(self.Ei))
+        # the barrier function gives the minimax barrier separating
+        # a node from a sink node
+        barrier_function = dict()
+        # the escape function is usually u[i] - E[i]
+        escape_function = dict() # escape function
+
+        delta = np.zeros(len(self.Ei)) # used to compute eigenvalues
+        evecs = dict() # eigenvectors
         
         k = 0
         s1 = self.sorted_indices[0]
         sinks = set()
         sinks.add(s1)
-        u[s1] = 0.
-        v[s1] = 0.
+        barrier_function[s1] = 0.
+        escape_function[s1] = 0.
         
-        self.find_u(mst, s1, u, v)
-        for i, ui in u.iteritems():
-            print "u v", i, u, v[i]
+        self.compute_barrier_function(mst, s1, barrier_function, escape_function)
+        for i, ui in barrier_function.iteritems():
+            print "barrier_function escape_function", i, barrier_function, escape_function[i]
             
         for k in xrange(1, len(self.Ei)):
             print ""
             # find the next sink
-            s = max(v.iterkeys(), key=lambda i:v[i])
+            s = max(escape_function.iterkeys(), key=lambda i:escape_function[i])
 #            sold = slist[-1]
 #            print slist
             print "current sink", s
@@ -160,12 +164,12 @@ class MSTSpectralDecomposition(object):
             
             
             if True:
-                s2 = self.get_connected_sink(mst, s, u)
+                s2 = self.get_connected_sink(mst, s, barrier_function)
             
-            for i, ui in u.iteritems(): print "  u[",i,"] = ", ui
+            for i, ui in barrier_function.iteritems(): print "  barrier_function[",i,"] = ", ui
             
             # find the new cutting edge
-            Epq, p, q = self.find_cutting_edge(mst, s, u)
+            Epq, p, q = self.find_cutting_edge(mst, s, barrier_function)
             print "p q Epq", p, q, Epq
             print "s Es   ", s, self.Ei[s], "sold Esold", s2, self.Ei[s2] 
             print "eval", "exp(-(", Epq, "-", self.Ei[s], ")/", self.T, ") = ", 
@@ -192,8 +196,8 @@ class MSTSpectralDecomposition(object):
                 print "evecs[",k,"] = ", evecs[k]
                 print "alternate      ", evec_alternate
             
-            # recompute u and v
-            self.recompute_uv(mst, s, u, v)
+            # recompute barrier_function and escape_function
+            self.recompute_barrier_function(mst, s, barrier_function, escape_function)
             
             sinks.add(s)
         
@@ -227,7 +231,6 @@ class MSTSpectralDecomposition(object):
 #    E[(1,2)] = 
 #    E[(1,4)] = 
 #    E[(1,6)] = 
-
 
 def test1():
     from numpy import exp
