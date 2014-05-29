@@ -5,6 +5,53 @@ import numpy as np
 
 from kmc_rates._preconditioning import MSTSpectralDecomposition
 
+
+def make_random_energies_complete(nnodes):
+    Ei = {}
+    Eij = {}
+    for i in xrange(nnodes):
+        Ei[i] = np.random.uniform(-1,1)
+    for i in xrange(nnodes):
+        for j in xrange(i):
+            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.1, 1)
+    return Ei, Eij 
+
+def make_rate_matrix(Ei, Eij, T=.05):
+    node_list = sorted(Ei.iterkeys())
+#    node2i = dict([(node,i) for i, node in enumerate(node_list)])
+
+    n = len(Ei)
+    m = np.zeros([n,n])
+    for i in xrange(n):
+        ni = node_list[i]
+        for j in xrange(n):
+            if i == j: continue
+            nj = node_list[j]
+            try:
+                Ets = Eij[(ni,nj)]
+            except KeyError:
+                try:
+                    Ets = Eij[(nj,ni)]
+                except KeyError:
+                    # there is no edge i,j
+                    continue
+            m[i,j] = np.exp(-(Ets - Ei[ni])/T)
+    for i in xrange(n):
+        m[i,i] = - m[i,:].sum()
+    return m
+
+def get_eigs(Ei, Eij, T=0.05):
+    from pele.utils.hessian import sort_eigs
+    m = make_rate_matrix(Ei, Eij, T=T)
+    lam, v = np.linalg.eig(m)
+    lam, v = sort_eigs(lam, v, reverse=True)
+    print "exact eigenvalues", -lam
+    print "exact eigenvectors"
+    print v
+    return m, lam, v
+#    print v
+
+
 class TestSpectralDecomp3(unittest.TestCase):
     def setUp(self):
         Ei = dict()
@@ -35,6 +82,13 @@ class TestSpectralDecomp3(unittest.TestCase):
         
         for v1, v2 in itertools.izip(evecs.flatten(), spect.eigenvectors.flatten()):
             self.assertAlmostEqual(v1, v2, 3)
+
+class TestSpectralDecompRandom(unittest.TestCase):
+    def test(self):
+        n = 8
+        T = 0.02
+        Ei, Eij = make_random_energies_complete(n)
+        spect = MSTSpectralDecomposition(Ei, Eij, T=T)
 
 
 if __name__ == "__main__":

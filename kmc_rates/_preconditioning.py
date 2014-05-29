@@ -71,12 +71,15 @@ class MSTSpectralDecomposition(object):
     
     def find_cutting_edge(self, mst, s1, barrier_function):
         u1 = barrier_function[s1]
+        i = j = None
         for parent, child in nx.bfs_edges(mst, s1):
             print "u[parent], u[child]", s1, ":", parent, child, barrier_function[parent], barrier_function[child], u1
             if barrier_function[child] < u1:
                 assert barrier_function[parent] == u1
                 i, j = child, parent
                 break
+        if i is None:
+            raise Exception("error in finding cutting edge")
         E = self.get_edge_energy(i, j)
 #        path = nx.shortest_path(mst, s1, s2)
 #        print "path", path
@@ -213,7 +216,10 @@ class MSTSpectralDecomposition(object):
         print "eigenvectors"
         print self.eigenvectors
         
-        
+#
+# only testing below here
+#
+from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #def test7():
 #    E = dict()
@@ -285,54 +291,9 @@ def test1():
 #        print m
 
 
-def make_random_energies_complete(nnodes):
-    Ei = {}
-    Eij = {}
-    for i in xrange(nnodes):
-        Ei[i] = np.random.uniform(-1,1)
-    for i in xrange(nnodes):
-        for j in xrange(i):
-            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.1, 1)
-    return Ei, Eij 
-
-def make_rate_matrix(Ei, Eij, T=.05):
-    node_list = sorted(Ei.iterkeys())
-#    node2i = dict([(node,i) for i, node in enumerate(node_list)])
-
-    n = len(Ei)
-    m = np.zeros([n,n])
-    for i in xrange(n):
-        ni = node_list[i]
-        for j in xrange(n):
-            if i == j: continue
-            nj = node_list[j]
-            try:
-                Ets = Eij[(ni,nj)]
-            except KeyError:
-                try:
-                    Ets = Eij[(nj,ni)]
-                except KeyError:
-                    # there is no edge i,j
-                    continue
-            m[i,j] = np.exp(-(Ets - Ei[ni])/T)
-    for i in xrange(n):
-        m[i,i] = - m[i,:].sum()
-    return m
-
-def get_eigs(Ei, Eij, T=0.05):
-    from pele.utils.hessian import sort_eigs
-    m = make_rate_matrix(Ei, Eij, T=T)
-    lam, v = np.linalg.eig(m)
-    lam, v = sort_eigs(lam, v, reverse=True)
-    print "exact eigenvalues", -lam
-    print "exact eigenvectors"
-    print v
-    return m, lam, v
-#    print v
-
 def test2():
-    np.random.seed(0)
-    Ei, Eij = make_random_energies_complete(4)
+    np.random.seed(1)
+    Ei, Eij = make_random_energies_complete(8)
     print Ei.items()
     print Eij.items()
     T = .02
