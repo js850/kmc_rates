@@ -139,12 +139,6 @@ class EstimateRates(object):
         self.rate_estimates = rate_estimates
                 
                 
-            
-        
-        
-    
-
-
 class CommittorLinalg(object):
     """compute committor probabilites using sparse linear algebra"""
     def __init__(self, rates, A, B, debug=False, weights=None):
@@ -160,13 +154,16 @@ class CommittorLinalg(object):
         
     def make_matrix(self):
         intermediates = self.nodes - self.A - self.B
+        if len(intermediates) == 0:
+            self.matrix = None
+            return
         
         node_list = list(intermediates)
         n = len(node_list)
         matrix = scipy.sparse.dok_matrix((n,n))
         right_side = np.zeros(n)
         node2i = dict([(node,i) for i, node in enumerate(node_list)])
-        
+
         
         for uv, rate in self.rates.iteritems():
             u, v = uv
@@ -188,7 +185,12 @@ class CommittorLinalg(object):
         self.right_side = right_side
         
     def compute_committors(self):
+        self.committor_dict = dict(((a, 0) for a in self.A))
+        self.committor_dict.update(dict(((b, 1) for b in self.B)))
         self.make_matrix()
+        if self.matrix is None:
+            return self.committor_dict
+            
         if self.right_side.size == 1:
             # some versions of scipy can't handle matrices of size 1
             committors = np.array([self.right_side[0] / self.matrix[0,0]])
@@ -201,7 +203,7 @@ class CommittorLinalg(object):
             qmax = committors.max()
             qmin = committors.min()
             raise LinalgError("The committors are not all between 0 and 1.  max=%.18g, min=%.18g" % (qmax, qmin))
-        self.committor_dict = dict(((node, c) for node, c in izip(self.node_list, committors)))
+        self.committor_dict.update(dict(((node, c) for node, c in izip(self.node_list, committors))))
 #        self.committors = committors
 #        print "committors", committors
         return self.committor_dict
@@ -271,9 +273,19 @@ class MfptLinalgSparse(object):
             self.make_matrix(self.nodes - self.B)
         t0 = time.clock()
         if cg:
-            x0 = np.array([mfpt_estimate[u] for u in self.node_list])
-            times, info = scipy.sparse.linalg.cgs(self.matrix, -np.ones(self.matrix.shape[0]),
+            if mfpt_estimate is None:
+                x0 = None
+            else:
+                x0 = np.array([mfpt_estimate[u] for u in self.node_list])
+#            # approximate the inverse of self.matrix
+#            minv = scipy.sparse.linalg.spilu(self.matrix)
+#            print minv
+            
+            times, info = scipy.sparse.linalg.cg(self.matrix, -np.ones(self.matrix.shape[0]),
+#                                                  maxiter=100,
                                                   x0=x0)
+            print "info", info
+#            print "times", times
             print "time to solve using conjugate gradient", time.clock() - t0
         else:
             times = scipy.sparse.linalg.spsolve(self.matrix, -np.ones(self.matrix.shape[0]),
