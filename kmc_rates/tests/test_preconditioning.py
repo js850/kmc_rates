@@ -85,10 +85,16 @@ class TestSpectralDecomp3(unittest.TestCase):
 
 class TestSpectralDecompRandom(unittest.TestCase):
     def test(self):
-        n = 8
+        n = 20
         T = 0.02
         Ei, Eij = make_random_energies_complete(n)
         spect = MSTSpectralDecomposition(Ei, Eij, T=T)
+        m, evals, evecs = get_eigs(Ei, Eij, T=T)
+        for v1, v2 in itertools.izip(spect.eigenvalues, -evals):
+            self.assertAlmostEqual(v1, v2, 2)
+
+#         for v1, v2 in itertools.izip(spect.eigenvectors.flatten(), evecs.flatten()):
+#             self.assertAlmostEqual(v1, v2, 1)
 
 
 if __name__ == "__main__":
