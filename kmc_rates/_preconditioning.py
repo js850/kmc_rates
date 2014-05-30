@@ -125,6 +125,8 @@ class MSTSpectralDecomposition(object):
                 i = node2index[node]
                 eigenvectors[i,k] = v
             eigenvectors[:,k] /= np.linalg.norm(eigenvectors[:,k])
+        self.node_list = nodes
+        self.node2index = node2index
         return eigenvectors
     
     def _print_component(self, mst, s):
@@ -221,7 +223,43 @@ class MSTSpectralDecomposition(object):
         self.eigenvectors = self.matricize_eigenvectors(evecs)
         print "eigenvectors"
         print self.eigenvectors
+
+class MSTPreconditioning(object):
+    def __init__(self, Ei, Eij, T=0.1):
+        self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
+        self.pi = np.array([np.exp(-Ei[node]/T) for node in self.spect.node_list])
+        self.run()
+    
+    def run(self):
+        n = len(self.spect.Ei)
+        evals = self.spect.eigenvalues
+        evecs = self.spect.eigenvectors
+        mat = np.zeros([n, n])
+        mat_inv = np.zeros([n, n])
+        pi = self.pi
         
+        for k in xrange(1,n):
+            v = evecs[:,k]
+            print v.shape, mat.shape, pi.shape
+            mat += -evals[k] * np.outer(v, v * pi)
+            mat_inv += evals[k] * np.outer(v, v * pi)
+        print "approximate K matrix"
+        print mat
+        print "approximate inv K", 
+        mat_inv
+        print "approximate K * Kinv"
+        mat_inv.dot(mat)
+
+        if True:       
+            m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
+            print "exact K matrix"
+            print m
+            print "condition number of m", np.linalg.cond(m[1:, 1:])
+
+        Kcond = mat_inv.dot(m)
+        print "condition number of conditiond matrix", np.linalg.cond(Kcond[1:,1:])
+            
+ 
 #
 # only testing below here
 #
@@ -324,7 +362,22 @@ def test2():
         print lam, v
         print lam * v
         print m.dot(v)
+
+def cond(m):
+    u, s, v = np.linalg.svd(m)
+    print "singular values"
+    print s
+    print s**2
+    
+def test_precond():
+    np.random.seed(1)
+    Ei, Eij = make_random_energies_complete(4)
+    T = .05
+    precond = MSTPreconditioning(Ei, Eij, T=T)
+    
     
 
+
 if __name__ == "__main__":
-    test2()
+#     test2()
+    test_precond()
