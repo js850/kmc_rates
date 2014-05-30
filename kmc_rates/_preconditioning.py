@@ -5,6 +5,7 @@ of the linear algebra solvers
 from itertools import izip
 
 import numpy as np
+import scipy
 import networkx as nx
 
 
@@ -112,8 +113,6 @@ class MSTSpectralDecomposition(object):
         com.compute_committors()
         return com.committor_dict
         
-        
-
     
     def matricize_eigenvectors(self, evecs):
         nodes = sorted(self.Ei.iterkeys())
@@ -137,6 +136,16 @@ class MSTSpectralDecomposition(object):
         for parent, child in nx.dfs_edges(mst, child):
             print "-", child,
         print ""
+    
+    def _make_equilibrium_occupation_probabilities(self):
+        Ered = np.array([self.Ei[node] / self.T for node in self.node_list])
+        Ered -= Ered.max()
+        pi = np.exp(-Ered)
+        pi /= pi.sum()
+        self.pi = pi 
+        print "equilibrium occupation probability"
+        print self.pi
+        
     
     def run(self):
         mst = self.compute_mst()
@@ -217,17 +226,36 @@ class MSTSpectralDecomposition(object):
 #        evals = np.cumsum(delta)
         self.eigenvalues = np.exp(-delta / self.T)
         self.eigenvalues[0] = 0.
-        print "eigenvalues", self.eigenvalues
         
         # process eigenvectors
         self.eigenvectors = self.matricize_eigenvectors(evecs)
+        
+        # make the equilibrium occupation probabilities
+        self._make_equilibrium_occupation_probabilities()
+        
+        # test to see if the eigenvectors are orthonormal
+        print "\ntesting to see if the eigenvectors are normalized"
+        for k in xrange(len(self.Ei)):
+            v = self.eigenvectors[:,k]
+            val = np.dot(v, v*self.pi)
+            self.eigenvectors[:,k] /= np.sqrt(val)
+            print "k", k, ":", np.dot(v, v*self.pi)
+        print "testing to see if the eigenvectors are orthogonal"
+        for k1 in xrange(len(self.Ei)):
+            for k2 in xrange(k1):
+                v1 = self.eigenvectors[:,k1]
+                v2 = self.eigenvectors[:,k2]
+                print "k1 k2", k1, k2, ":", np.dot(v1, v2*self.pi)
+            
+        
+        print "\neigenvalues", self.eigenvalues
+
         print "eigenvectors"
         print self.eigenvectors
 
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
-        self.pi = np.array([np.exp(-Ei[node]/T) for node in self.spect.node_list])
         self.run()
     
     def run(self):
@@ -236,13 +264,13 @@ class MSTPreconditioning(object):
         evecs = self.spect.eigenvectors
         mat = np.zeros([n, n])
         mat_inv = np.zeros([n, n])
-        pi = self.pi
+        pi = self.spect.pi
         
         for k in xrange(1,n):
             v = evecs[:,k]
             print v.shape, mat.shape, pi.shape
             mat += -evals[k] * np.outer(v, v * pi)
-            mat_inv += evals[k] * np.outer(v, v * pi)
+            mat_inv += 1./evals[k] * np.outer(v, v * pi)
         print "approximate K matrix"
         print mat
         print "approximate inv K", 
@@ -254,10 +282,10 @@ class MSTPreconditioning(object):
             m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
             print "exact K matrix"
             print m
-            print "condition number of m", np.linalg.cond(m[1:, 1:])
+            print "condition number of m", np.linalg.cond(m[:-1, :-1])
 
-        Kcond = mat_inv.dot(m)
-        print "condition number of conditiond matrix", np.linalg.cond(Kcond[1:,1:])
+        Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
+        print "condition number of conditiond matrix", np.linalg.cond(Kcond)
             
  
 #
@@ -284,23 +312,11 @@ from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 def test1():
     from numpy import exp
-    T = 1.
-    beta = 1./T
     E3 = 0.;
     E1 = 2.;
     E2 = 3.;
     E12 = 4.1;
     E23 = 5.2;
-    k = dict()
-    k[(1,2)] = exp(-beta*(E12-E1));
-    k[(1,3)] = 0;
-    k[(1,1)] = -k[(1,3)] - k[(1,2)];
-    k[(2,1)] = exp(-beta*(E12-E2));
-    k[(2,3)] = exp(-beta*(E23-E2));
-    k[(2,2)] = -k[(2,1)] - k[(2,3)];
-    k[(3,1)] = 0;
-    k[(3,2)] = exp(-beta*(E23-E3));
-    k[(3,3)] = -k[(3,1)] -k[(3,2)];
     
     Ei = dict()
     Ei[1] = E1
@@ -369,15 +385,28 @@ def cond(m):
     print s
     print s**2
     
-def test_precond():
+def test_precond1():
     np.random.seed(1)
-    Ei, Eij = make_random_energies_complete(4)
-    T = .05
+    Ei = dict()
+    Ei[3] = 0.
+    Ei[1] = 2.
+    Ei[2] = 3.
+    Eij = dict()
+    Eij[(1,2)] = 4.1
+    Eij[(2,3)] = 5.2
+
+    T = .1
+    precond = MSTPreconditioning(Ei, Eij, T=T)
+    
+def test_precond2():
+#    np.random.seed(1)
+    Ei, Eij = make_random_energies_complete(3)
+    T = .1
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
     
 
 
 if __name__ == "__main__":
-#     test2()
-    test_precond()
+#    test2()
+    test_precond1()
