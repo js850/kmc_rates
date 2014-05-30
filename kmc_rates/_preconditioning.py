@@ -114,18 +114,34 @@ class MSTSpectralDecomposition(object):
         return com.committor_dict
         
     
-    def matricize_eigenvectors(self, evecs):
+    def matricize_eigenvectors(self, evecs, slist):
         nodes = sorted(self.Ei.iterkeys())
         node2index = dict(((n, i) for i, n in enumerate(nodes)))
-        eigenvectors = np.zeros([len(nodes), len(nodes)])
-        eigenvectors[:,0] = 1. / np.sqrt(len(nodes))
-        for k, evec in evecs.iteritems():
-            for node, v in evec.iteritems():
-                i = node2index[node]
-                eigenvectors[i,k] = v
-            eigenvectors[:,k] /= np.linalg.norm(eigenvectors[:,k])
         self.node_list = nodes
         self.node2index = node2index
+        self._make_equilibrium_occupation_probabilities()
+        
+        eigenvectors = np.zeros([len(nodes), len(nodes)])
+        eigenvectors[:,0] = 1.
+        for k, evec in evecs.iteritems():
+            if True:
+                # improve accuracy of the eigenvectors. (I'm not sure this is actually correct)
+                assert min(evec.itervalues()) > 0
+                pnorm = self.pi_dict[slist[k-1]]
+                small = sum((self.pi_dict[node] for node in evec.iterkeys()))
+                small = np.sqrt(small / pnorm)
+                big = -1./small
+                eigenvectors[node2index[slist[k-1]],k] = small
+            for node, v in evec.iteritems():
+                i = node2index[node]
+                eigenvectors[i,k] = v * big
+        
+
+        # normalize them
+        for k in xrange(len(self.Ei)):
+            v = eigenvectors[:,k]
+            eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
+
         return eigenvectors
     
     def _print_component(self, mst, s):
@@ -142,7 +158,8 @@ class MSTSpectralDecomposition(object):
         Ered -= Ered.max()
         pi = np.exp(-Ered)
         pi /= pi.sum()
-        self.pi = pi 
+        self.pi = pi
+        self.pi_dict = dict((self.node_list[i], p) for i, p in enumerate(pi))
         print "equilibrium occupation probability"
         print self.pi
         
@@ -162,8 +179,8 @@ class MSTSpectralDecomposition(object):
         
         k = 0
         s1 = self.sorted_indices[0]
-        sinks = set()
-        sinks.add(s1)
+        sinks = set([s1])
+        slist = [s1]
         barrier_function[s1] = 0.
         escape_function[s1] = 0.
         
@@ -176,7 +193,7 @@ class MSTSpectralDecomposition(object):
 #            sold = slist[-1]
 #            print slist
             print "current sink", s
-            print "past sinks", sinks
+            print "past sinks", slist
             print "total # edges", mst.number_of_edges()
             print "size of component connected to current sink", len(nx.node_connected_component(mst, s))
             self._print_component(mst, s)
@@ -208,18 +225,20 @@ class MSTSpectralDecomposition(object):
             # compute the eigenvector components in the simplified way
             evecs[k] = self.compute_kth_eigenvector_components(mst, s)
             
+            if True:
+                print "evec simple", evecs[k]
+                print "  alternate", evec_alternate
+
             use_alternate_evec = False
             if use_alternate_evec:
                 evecs[k] = evec_alternate
             
-            if True:
-                print "evecs[",k,"] = ", evecs[k]
-                print "alternate      ", evec_alternate
             
             # recompute barrier_function and escape_function
             self.recompute_barrier_function(mst, s, barrier_function, escape_function)
             
             sinks.add(s)
+            slist.append(s)
         
         # process eigenvalues
         print delta
@@ -228,7 +247,7 @@ class MSTSpectralDecomposition(object):
         self.eigenvalues[0] = 0.
         
         # process eigenvectors
-        self.eigenvectors = self.matricize_eigenvectors(evecs)
+        self.eigenvectors = self.matricize_eigenvectors(evecs, slist)
         
         # make the equilibrium occupation probabilities
         self._make_equilibrium_occupation_probabilities()
@@ -237,9 +256,8 @@ class MSTSpectralDecomposition(object):
         print "\ntesting to see if the eigenvectors are normalized"
         for k in xrange(len(self.Ei)):
             v = self.eigenvectors[:,k]
-            val = np.dot(v, v*self.pi)
-            self.eigenvectors[:,k] /= np.sqrt(val)
-            print "k", k, ":", np.dot(v, v*self.pi)
+#            self.eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
+            print "k", k, ":", np.dot(v, v * self.pi)
         print "testing to see if the eigenvectors are orthogonal"
         for k1 in xrange(len(self.Ei)):
             for k2 in xrange(k1):
@@ -250,8 +268,8 @@ class MSTSpectralDecomposition(object):
         
         print "\neigenvalues", self.eigenvalues
 
-        print "eigenvectors"
-        print self.eigenvectors
+        print "eigenvectors (normalized to norm==1)"
+        print self.eigenvectors / (np.sqrt(np.sum(self.eigenvectors**2, axis=0)))[np.newaxis,:]
 
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
@@ -332,9 +350,9 @@ def test1():
     
     if True:
         print "\ntesting eigenvectors"
-        k = 0
+        k = 2
         v = spect.eigenvectors[:,k].copy()
-        lam = spect.eigenvalues[k]
+        lam = -spect.eigenvalues[k]
         v /= np.linalg.norm(v)
         print lam, v
         print lam * v
@@ -353,7 +371,7 @@ def test1():
 
 def test2():
     np.random.seed(1)
-    Ei, Eij = make_random_energies_complete(8)
+    Ei, Eij = make_random_energies_complete(4)
     print Ei.items()
     print Eij.items()
     T = .02
@@ -400,13 +418,13 @@ def test_precond1():
     
 def test_precond2():
 #    np.random.seed(1)
-    Ei, Eij = make_random_energies_complete(3)
-    T = .1
+    Ei, Eij = make_random_energies_complete(4)
+    T = .05
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
     
 
 
 if __name__ == "__main__":
-#    test2()
-    test_precond1()
+    test2()
+#    test_precond2()
