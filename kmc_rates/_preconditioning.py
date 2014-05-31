@@ -112,6 +112,15 @@ class MSTSpectralDecomposition(object):
         com = CommittorLinalg(rates, [sold], [s])
         com.compute_committors()
         return com.committor_dict
+    
+    def improve_eigenvector(self, evec, eval):
+        # this basically does one step of conjugate gradient minimization
+        from tests.test_preconditioning import make_rate_matrix
+        m = make_rate_matrix(self.Ei, self.Eij, T=self.T)
+        r = eval * evec - m.dot(evec)
+        p = r
+        alpha = r.dot(r) / p.dot(m.dot(p))
+        evec += alpha * p
         
     
     def matricize_eigenvectors(self, evecs, slist):
@@ -135,6 +144,8 @@ class MSTSpectralDecomposition(object):
             for node, v in evec.iteritems():
                 i = node2index[node]
                 eigenvectors[i,k] = v * big
+#                 eigenvectors[i,k] = v
+#             self.improve_eigenvector(eigenvectors[:,k], k)
         
 
         # normalize them
@@ -243,7 +254,7 @@ class MSTSpectralDecomposition(object):
         # process eigenvalues
         print delta
 #        evals = np.cumsum(delta)
-        self.eigenvalues = np.exp(-delta / self.T)
+        self.eigenvalues = -np.exp(-delta / self.T)
         self.eigenvalues[0] = 0.
         
         # process eigenvectors
@@ -264,7 +275,7 @@ class MSTSpectralDecomposition(object):
                 v1 = self.eigenvectors[:,k1]
                 v2 = self.eigenvectors[:,k2]
                 print "k1 k2", k1, k2, ":", np.dot(v1, v2*self.pi)
-            
+    
         
         print "\neigenvalues", self.eigenvalues
 
@@ -287,29 +298,35 @@ class MSTPreconditioning(object):
         for k in xrange(1,n):
             v = evecs[:,k]
             print v.shape, mat.shape, pi.shape
-            mat += -evals[k] * np.outer(v, v * pi)
-            mat_inv += 1./evals[k] * np.outer(v, v * pi)
+            mat += evals[k] * np.outer(v, v * pi)
+            mat_inv -= 1./evals[k] * np.outer(v, v * pi)
         print "approximate K matrix"
         print mat
-        print "approximate inv K", 
-        mat_inv
-        print "approximate K * Kinv"
-        mat_inv.dot(mat)
+        print "approximate inv K"
+        print mat_inv
 
         if True:       
             m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
             print "exact K matrix"
             print m
             print "condition number of m", np.linalg.cond(m[:-1, :-1])
+        
+        print "\ntesting to see if the the eigenvectors satisfy the eigenvalue equation"
+        for k in xrange(len(evals)):
+            v = evecs[:,k]
+            l = np.dot(v*pi, np.dot(m, v))
+            print "k", k, ":", l, "=?=", evals[k], "normalized |diff|", np.abs((l-evals[k])/l)
 
-        Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
-        print "condition number of conditiond matrix", np.linalg.cond(Kcond)
+
+        Kcond = np.dot(mat_inv, m)
+        print "conditioned matrix"
+        print Kcond
+        print "condition number of conditioned matrix", np.linalg.cond(Kcond[:-1,:-1])
             
  
 #
 # only testing below here
 #
-from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #def test7():
 #    E = dict()
@@ -426,5 +443,7 @@ def test_precond2():
 
 
 if __name__ == "__main__":
-    test2()
-#    test_precond2()
+    from tests.test_preconditioning import make_random_energies_complete, get_eigs
+
+#     test2()
+    test_precond2()
