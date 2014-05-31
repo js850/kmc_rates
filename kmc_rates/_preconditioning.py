@@ -3,11 +3,16 @@ methods for preconditioning the rate matrix to improve the performance
 of the linear algebra solvers
 """
 from itertools import izip
+import sys
 
 import numpy as np
 import scipy
 import networkx as nx
 
+def print_matrix(m, fmt="%9.3g"):
+    print np.array_str(m, precision=3, max_line_width=300)
+    return
+    np.savetxt(sys.stdout, m, fmt=fmt)
 
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
@@ -133,21 +138,22 @@ class MSTSpectralDecomposition(object):
         eigenvectors = np.zeros([len(nodes), len(nodes)])
         eigenvectors[:,0] = 1.
         for k, evec in evecs.iteritems():
-            if True:
-                # improve accuracy of the eigenvectors. (I'm not sure this is actually correct)
-                assert min(evec.itervalues()) > 0
-                pnorm = self.pi_dict[slist[k-1]]
-                small = sum((self.pi_dict[node] for node in evec.iterkeys()))
-                small = np.sqrt(small / pnorm)
-                big = -1./small
-                eigenvectors[node2index[slist[k-1]],k] = small
+#             if True:
+#                 # improve accuracy of the eigenvectors. (I'm not sure this is actually correct)
+#                 assert min(evec.itervalues()) > 0
+#                 pnorm = self.pi_dict[slist[k-1]]
+#                 small = sum((self.pi_dict[node] for node in evec.iterkeys()))
+#                 small = np.sqrt(small / pnorm)
+#                 big = -1./small
+#                 eigenvectors[node2index[slist[k-1]],k] = small
             for node, v in evec.iteritems():
                 i = node2index[node]
-                eigenvectors[i,k] = v * big
-#                 eigenvectors[i,k] = v
+#                 eigenvectors[i,k] = v * big
+                eigenvectors[i,k] = v
 #             self.improve_eigenvector(eigenvectors[:,k], k)
         
-
+        print "eigenvectors before any normalization"
+        print_matrix(eigenvectors)
         # normalize them
         for k in xrange(len(self.Ei)):
             v = eigenvectors[:,k]
@@ -172,7 +178,7 @@ class MSTSpectralDecomposition(object):
         self.pi = pi
         self.pi_dict = dict((self.node_list[i], p) for i, p in enumerate(pi))
         print "equilibrium occupation probability"
-        print self.pi
+        print_matrix(self.pi)
         
     
     def run(self):
@@ -198,7 +204,7 @@ class MSTSpectralDecomposition(object):
         self.compute_barrier_function(mst, s1, barrier_function, escape_function)
             
         for k in xrange(1, len(self.Ei)):
-            print ""
+            print "\niteration", k
             # find the next sink
             s = max(escape_function.iterkeys(), key=lambda i:escape_function[i])
 #            sold = slist[-1]
@@ -250,9 +256,10 @@ class MSTSpectralDecomposition(object):
             
             sinks.add(s)
             slist.append(s)
-        
+
+        print ""
+                
         # process eigenvalues
-        print delta
 #        evals = np.cumsum(delta)
         self.eigenvalues = -np.exp(-delta / self.T)
         self.eigenvalues[0] = 0.
@@ -261,26 +268,32 @@ class MSTSpectralDecomposition(object):
         self.eigenvectors = self.matricize_eigenvectors(evecs, slist)
         
         # make the equilibrium occupation probabilities
-        self._make_equilibrium_occupation_probabilities()
+#         self._make_equilibrium_occupation_probabilities()
         
         # test to see if the eigenvectors are orthonormal
         print "\ntesting to see if the eigenvectors are normalized"
         for k in xrange(len(self.Ei)):
             v = self.eigenvectors[:,k]
 #            self.eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
-            print "k", k, ":", np.dot(v, v * self.pi)
+            print "k", k, ":", np.sum(v * v * self.pi)
         print "testing to see if the eigenvectors are orthogonal"
         for k1 in xrange(len(self.Ei)):
             for k2 in xrange(k1):
                 v1 = self.eigenvectors[:,k1]
                 v2 = self.eigenvectors[:,k2]
-                print "k1 k2", k1, k2, ":", np.dot(v1, v2*self.pi)
+                r = np.sum(v1 * v2 * self.pi)
+                if np.abs(r) > .01:
+                    print "k1 k2", k1, k2, ":", r
     
         
-        print "\neigenvalues", self.eigenvalues
+        print "\neigenvalues"
+        print_matrix(self.eigenvalues)
 
         print "eigenvectors (normalized to norm==1)"
-        print self.eigenvectors / (np.sqrt(np.sum(self.eigenvectors**2, axis=0)))[np.newaxis,:]
+        v = self.eigenvectors / (np.sqrt(np.sum(self.eigenvectors**2, axis=0)))[np.newaxis,:]
+        print_matrix(v)
+        print "eigenvectors (normalized to sum(v*v*pi) = 1)"
+        print_matrix(self.eigenvectors)
 
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
@@ -297,18 +310,17 @@ class MSTPreconditioning(object):
         
         for k in xrange(1,n):
             v = evecs[:,k]
-            print v.shape, mat.shape, pi.shape
             mat += evals[k] * np.outer(v, v * pi)
             mat_inv -= 1./evals[k] * np.outer(v, v * pi)
         print "approximate K matrix"
-        print mat
+        print_matrix(mat)
         print "approximate inv K"
-        print mat_inv
+        print_matrix(mat_inv)
 
         if True:       
             m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
             print "exact K matrix"
-            print m
+            print_matrix(m)
             print "condition number of m", np.linalg.cond(m[:-1, :-1])
         
         print "\ntesting to see if the the eigenvectors satisfy the eigenvalue equation"
@@ -320,7 +332,7 @@ class MSTPreconditioning(object):
 
         Kcond = np.dot(mat_inv, m)
         print "conditioned matrix"
-        print Kcond
+        print_matrix(Kcond)
         print "condition number of conditioned matrix", np.linalg.cond(Kcond[:-1,:-1])
             
  
@@ -434,8 +446,8 @@ def test_precond1():
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
 def test_precond2():
-#    np.random.seed(1)
-    Ei, Eij = make_random_energies_complete(4)
+    np.random.seed(3)
+    Ei, Eij = make_random_energies_complete(8)
     T = .05
     precond = MSTPreconditioning(Ei, Eij, T=T)
     

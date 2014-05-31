@@ -3,7 +3,7 @@ import itertools
 
 import numpy as np
 
-from kmc_rates._preconditioning import MSTSpectralDecomposition
+from kmc_rates._preconditioning import MSTSpectralDecomposition, print_matrix
 
 
 def make_random_energies_complete(nnodes):
@@ -45,9 +45,10 @@ def get_eigs(Ei, Eij, T=0.05):
     m = make_rate_matrix(Ei, Eij, T=T)
     lam, v = np.linalg.eig(m)
     lam, v = sort_eigs(lam, v, reverse=True)
-    print "exact eigenvalues", -lam
+    print "exact eigenvalues"
+    print_matrix(lam)
     print "exact eigenvectors"
-    print v
+    print_matrix(v)
     return m, lam, v
 #    print v
 
