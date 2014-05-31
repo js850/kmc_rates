@@ -8,11 +8,59 @@ import sys
 import numpy as np
 import scipy
 import networkx as nx
+import pylab as plt
 
 def print_matrix(m, fmt="%9.3g"):
     print np.array_str(m, precision=3, max_line_width=300)
     return
     np.savetxt(sys.stdout, m, fmt=fmt)
+
+class ViewMSTSpectralDecomp(object):
+    def __init__(self, spect):
+        self.spect = spect
+        self.run()
+
+    def draw_nodes(self, nodes, color='k'):
+        xypos = [self.pos[n] for n in nodes]
+        x = [xy[0] for xy in xypos]
+        y = [xy[1] for xy in xypos]
+        plt.scatter(x, y, c=color, linewidths=0, s=60)
+
+    def draw_edges(self, edges, color='k', lw=1.):
+        for u, v in edges:
+            xy = np.array([self.pos[u], self.pos[v]])
+            plt.plot(xy[:,0], xy[:,1], color, lw=lw)
+    
+    def draw(self, k):
+        plt.clf()
+        
+        m=k+1
+        self.draw_nodes(self.spect.slist[:m], color='b')
+        self.draw_nodes([self.spect.slist[m]], color='r')
+        if m < len(self.spect.slist):
+            self.draw_nodes(self.spect.slist[m+1:])
+        
+        # draw edges
+        self.draw_edges(self.spect.cut_edges[:k], lw=.1)
+        self.draw_edges([self.spect.cut_edges[k]], color='r')
+        if k < len(self.spect.slist):
+            self.draw_edges(self.spect.cut_edges[(k+1):])
+
+        # draw edges lightly that have been removed
+
+        plt.show()
+      
+    def run(self):
+        self.mst = self.spect.compute_mst()
+        self.pos = nx.spring_layout(self.mst)
+        self.removed_edges = []
+        
+        for k in xrange(len(self.spect.Ei)-1):
+            self.draw(k)
+            
+            self.mst.remove_edge(*self.spect.cut_edges[k])
+            self.removed_edges = self.spect.cut_edges[:(k+1)]
+        
 
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
@@ -33,8 +81,8 @@ class MSTSpectralDecomposition(object):
             self.graph.add_node(i, E=E)
         for (i, j), E in self.Eij.iteritems():
             self.graph.add_edge(i, j, E=E)
-        self.mst = nx.minimum_spanning_tree(self.graph, weight='E')
-        return self.mst
+        mst = nx.minimum_spanning_tree(self.graph, weight='E')
+        return mst
     
     def get_edge_energy(self, u, v):
         try:
@@ -214,7 +262,8 @@ class MSTSpectralDecomposition(object):
 
     
     def run(self):
-        mst = self.compute_mst()
+        self.mst = self.compute_mst()
+        mst = self.mst
         print self.mst.number_of_edges()
         
         # the barrier function gives the minimax barrier separating
@@ -230,6 +279,7 @@ class MSTSpectralDecomposition(object):
         s1 = self.sorted_indices[0]
         sinks = set([s1])
         slist = [s1]
+        self.cut_edges = []
         barrier_function[s1] = 0.
         escape_function[s1] = 0.
         
@@ -288,7 +338,9 @@ class MSTSpectralDecomposition(object):
             
             sinks.add(s)
             slist.append(s)
+            self.cut_edges.append((p,q))
 
+        self.slist = slist
         print ""
                 
         # process eigenvalues
@@ -318,7 +370,9 @@ class MSTSpectralDecomposition(object):
         print_matrix(v)
         print "eigenvectors (normalized to sum(v*v*pi) = 1)"
         print_matrix(self.eigenvectors)
-
+        
+        viewer = ViewMSTSpectralDecomp(self)
+        
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
@@ -419,7 +473,7 @@ def test1():
 
 def test2():
     np.random.seed(1)
-    Ei, Eij = make_random_energies_complete(4)
+    Ei, Eij = make_random_energies_complete(15)
     print Ei.items()
     print Eij.items()
     T = .02
@@ -476,5 +530,5 @@ def test_precond2():
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
-#     test2()
-    test_precond1()
+    test2()
+#     test_precond1()
