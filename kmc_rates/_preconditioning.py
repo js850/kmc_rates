@@ -122,11 +122,21 @@ class MSTSpectralDecomposition(object):
         # this basically does one step of conjugate gradient minimization
         from tests.test_preconditioning import make_rate_matrix
         m = make_rate_matrix(self.Ei, self.Eij, T=self.T)
-        r = eval * evec - m.dot(evec)
+        # symmetrise m
+        m = m * self.pi[:,np.newaxis]
+        r = eval * evec - np.dot(m, evec)
         p = r
-        alpha = r.dot(r) / p.dot(m.dot(p))
+        alpha = np.dot(r,r) / np.dot(p, np.dot(m, p))
         evec += alpha * p
-        
+        if True:
+            rnew = eval * evec - np.dot(m, evec)
+#             assert np.linalg.norm(rnew) <= np.linalg.norm(r), "%g %g" % (np.linalg.norm(rnew), np.linalg.norm(r))
+    
+    def normalize_eigenvectors(self, eigenvectors):
+        # normalize them
+        for k in xrange(len(self.Ei)):
+            v = eigenvectors[:,k]
+            eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
     
     def matricize_eigenvectors(self, evecs, slist):
         nodes = sorted(self.Ei.iterkeys())
@@ -152,12 +162,9 @@ class MSTSpectralDecomposition(object):
                 eigenvectors[i,k] = v
 #             self.improve_eigenvector(eigenvectors[:,k], k)
         
-        print "eigenvectors before any normalization"
+        print "eigenvectors before any fiddling"
         print_matrix(eigenvectors)
-        # normalize them
-        for k in xrange(len(self.Ei)):
-            v = eigenvectors[:,k]
-            eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
+        self.normalize_eigenvectors(eigenvectors)
 
         return eigenvectors
     
@@ -179,7 +186,32 @@ class MSTSpectralDecomposition(object):
         self.pi_dict = dict((self.node_list[i], p) for i, p in enumerate(pi))
         print "equilibrium occupation probability"
         print_matrix(self.pi)
-        
+    
+    def _test_orthogonality(self): 
+        # test to see if the eigenvectors are orthonormal
+        print "\ntesting to see if the eigenvectors are normalized"
+        for k in xrange(len(self.Ei)):
+            v = self.eigenvectors[:,k]
+            r = np.sum(v * v * self.pi)
+            if abs(r-1) > .1:
+                print "k", k, ":", r
+        print "testing to see if the eigenvectors are orthogonal"
+        for k1 in xrange(len(self.Ei)):
+            for k2 in xrange(k1):
+                v1 = self.eigenvectors[:,k1]
+                v2 = self.eigenvectors[:,k2]
+                r = np.sum(v1 * v2 * self.pi)
+                if np.abs(r) > .01:
+                    print "k1 k2", k1, k2, ":", r
+
+        from tests.test_preconditioning import make_rate_matrix
+        m = make_rate_matrix(self.Ei, self.Eij, T=self.T)
+        print "testing to see if the the eigenvectors satisfy the eigenvalue equation"
+        for k in xrange(len(self.eigenvalues)):
+            v = self.eigenvectors[:,k]
+            l = np.dot(v*self.pi, np.dot(m, v))
+            print "k", k, ":", l, "=?=", self.eigenvalues[k], "normalized |diff|", np.abs((l-self.eigenvalues[k])/l)
+
     
     def run(self):
         mst = self.compute_mst()
@@ -266,24 +298,16 @@ class MSTSpectralDecomposition(object):
         
         # process eigenvectors
         self.eigenvectors = self.matricize_eigenvectors(evecs, slist)
+
+        self._test_orthogonality()
+
+        if True:  
+            print "\ntrying to improve eigenvectors by CG minimization"      
+            for k in xrange(len(self.eigenvalues)):
+                self.improve_eigenvector(self.eigenvectors[:,k], self.eigenvalues[k])
+            self.normalize_eigenvectors(self.eigenvectors)
+            self._test_orthogonality()
         
-        # make the equilibrium occupation probabilities
-#         self._make_equilibrium_occupation_probabilities()
-        
-        # test to see if the eigenvectors are orthonormal
-        print "\ntesting to see if the eigenvectors are normalized"
-        for k in xrange(len(self.Ei)):
-            v = self.eigenvectors[:,k]
-#            self.eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
-            print "k", k, ":", np.sum(v * v * self.pi)
-        print "testing to see if the eigenvectors are orthogonal"
-        for k1 in xrange(len(self.Ei)):
-            for k2 in xrange(k1):
-                v1 = self.eigenvectors[:,k1]
-                v2 = self.eigenvectors[:,k2]
-                r = np.sum(v1 * v2 * self.pi)
-                if np.abs(r) > .01:
-                    print "k1 k2", k1, k2, ":", r
     
         
         print "\neigenvalues"
@@ -323,11 +347,6 @@ class MSTPreconditioning(object):
             print_matrix(m)
             print "condition number of m", np.linalg.cond(m[:-1, :-1])
         
-        print "\ntesting to see if the the eigenvectors satisfy the eigenvalue equation"
-        for k in xrange(len(evals)):
-            v = evecs[:,k]
-            l = np.dot(v*pi, np.dot(m, v))
-            print "k", k, ":", l, "=?=", evals[k], "normalized |diff|", np.abs((l-evals[k])/l)
 
 
         Kcond = np.dot(mat_inv, m)
@@ -458,4 +477,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test2()
-    test_precond2()
+    test_precond1()
