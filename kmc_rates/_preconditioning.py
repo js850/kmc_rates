@@ -171,15 +171,30 @@ class MSTSpectralDecomposition(object):
         from tests.test_preconditioning import make_rate_matrix
         m = make_rate_matrix(self.Ei, self.Eij, T=self.T)
         # symmetrise m
+#         m = m / self.pi[np.newaxis,:]
         m = m * self.pi[:,np.newaxis]
-        r = eval * evec - np.dot(m, evec)
+#         u1, u2 = self.node_list[1], self.node_list[2]
+#         print "symmetrized?", m[1,2], m[2,1], np.exp(-(self.get_edge_energy(u1, u2) - self.Ei[u2])/self.T) / self.pi[1]
+#         print "symmetrized?", m[1,2], m[2,1], np.exp(-(self.get_edge_energy(u1, u2) - self.Ei[u2])/self.T) * self.pi[2]
+        r = eval * evec - np.dot(m, evec * self.pi)
         p = r
         alpha = np.dot(r,r) / np.dot(p, np.dot(m, p))
         evec += alpha * p
+        print "alpha", alpha, "r*r", r.dot(r), "p*m*p", np.dot(p, np.dot(m, p))
         if True:
-            rnew = eval * evec - np.dot(m, evec)
-#             assert np.linalg.norm(rnew) <= np.linalg.norm(r), "%g %g" % (np.linalg.norm(rnew), np.linalg.norm(r))
-    
+            rnew = eval * evec - np.dot(m, evec * self.pi)
+            assert np.linalg.norm(rnew) <= np.linalg.norm(r), "%g %g" % (np.linalg.norm(rnew), np.linalg.norm(r))
+
+    def improve_eigenvectors_by_orthogonalization(self):
+        # graeme schmidt orthogonalization
+        from tests.test_preconditioning import make_rate_matrix
+        for k in xrange(len(self.Ei)):
+            v = self.eigenvectors[:,k]
+            for j in xrange(k):
+                u = self.eigenvectors[:,j]
+                proj = np.sum(u * v * self.pi) / np.sum(u * u * self.pi)
+                v -= u * proj
+
     def normalize_eigenvectors(self, eigenvectors):
         # normalize them
         for k in xrange(len(self.Ei)):
@@ -353,10 +368,16 @@ class MSTSpectralDecomposition(object):
 
         self._test_orthogonality()
 
-        if True:  
+        if False:  
             print "\ntrying to improve eigenvectors by CG minimization"      
             for k in xrange(len(self.eigenvalues)):
                 self.improve_eigenvector(self.eigenvectors[:,k], self.eigenvalues[k])
+            self.normalize_eigenvectors(self.eigenvectors)
+            self._test_orthogonality()
+        
+        if True:  
+            print "\ntrying to improve eigenvectors by graeme schmidt orthogonalization"      
+            self.improve_eigenvectors_by_orthogonalization()
             self.normalize_eigenvectors(self.eigenvectors)
             self._test_orthogonality()
         
@@ -371,7 +392,6 @@ class MSTSpectralDecomposition(object):
         print "eigenvectors (normalized to sum(v*v*pi) = 1)"
         print_matrix(self.eigenvectors)
         
-        viewer = ViewMSTSpectralDecomp(self)
         
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
@@ -407,7 +427,9 @@ class MSTPreconditioning(object):
         print "conditioned matrix"
         print_matrix(Kcond)
         print "condition number of conditioned matrix", np.linalg.cond(Kcond[:-1,:-1])
-            
+       
+        viewer = ViewMSTSpectralDecomp(self.spect)
+
  
 #
 # only testing below here
@@ -467,6 +489,9 @@ def test1():
         print lam, v
         print lam * v
         print m.dot(v)
+    
+    viewer = ViewMSTSpectralDecomp(spect)
+
         
 #        print m
 
@@ -498,13 +523,9 @@ def test2():
         print lam, v
         print lam * v
         print m.dot(v)
-
-def cond(m):
-    u, s, v = np.linalg.svd(m)
-    print "singular values"
-    print s
-    print s**2
     
+    viewer = ViewMSTSpectralDecomp(spect)
+
 def test_precond1():
     np.random.seed(1)
     Ei = dict()
@@ -517,11 +538,11 @@ def test_precond1():
 
     T = .1
     precond = MSTPreconditioning(Ei, Eij, T=T)
-    
-def test_precond2():
+
+
+def test_precond2(n=8, T=.01):
     np.random.seed(3)
-    Ei, Eij = make_random_energies_complete(8)
-    T = .05
+    Ei, Eij = make_random_energies_complete(n)
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
     
@@ -530,5 +551,5 @@ def test_precond2():
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
-    test2()
-#     test_precond1()
+#     test1()
+    test_precond2(n=20, T=.05)
