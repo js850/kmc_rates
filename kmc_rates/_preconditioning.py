@@ -60,7 +60,12 @@ class ViewMSTSpectralDecomp(object):
             
             self.mst.remove_edge(*self.spect.cut_edges[k])
             self.removed_edges = self.spect.cut_edges[:(k+1)]
-        
+
+def _normalize_eigenvectors(eigenvectors, pi):
+    for k in xrange(eigenvectors.shape[0]):
+        v = eigenvectors[:,k]
+        eigenvectors[:,k] /= np.sqrt(np.dot(v, v * pi))
+
 
 class MSTSpectralDecompositionOld(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
@@ -673,7 +678,8 @@ class MSTSpectralDecomposition(object):
 
 
 class MSTPreconditioning(object):
-    def __init__(self, Ei, Eij, T=0.1):
+    def __init__(self, Ei, Eij, T=0.1, verbose=True):
+        self.verbose = verbose
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
         self.run()
 
@@ -718,36 +724,57 @@ class MSTPreconditioning(object):
         mat_inv = np.zeros([n, n])
         pi = self.spect.pi
         
+        if self.verbose:
+            m, xevals, xevecs = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
+            xmat = np.zeros(mat.shape)
+            xmat_inv = np.zeros(mat.shape)
+            _normalize_eigenvectors(xevecs, pi)
+            for k in xrange(1,n):
+                v = xevecs[:,k]
+                xmat += xevals[k] * np.outer(v, v * pi)
+                xmat_inv += 1./xevals[k] * np.outer(v, v * pi)
+
+        
         for k in xrange(1,n):
             v = evecs[:,k]
             mat += evals[k] * np.outer(v, v * pi)
             mat_inv += 1./evals[k] * np.outer(v, v * pi)
-        print "approximate K matrix"
-        print_matrix(mat)
-        print "approximate inv K"
-        print_matrix(mat_inv)
-        
+
         if True:
             mat_inv_alt = self.make_K_inv()
-            print "approximate inv K make from log sums"
-            print_matrix(mat_inv_alt)
-            mat_inv = mat_inv_alt
         
-
-        if True:       
-            m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
+        if self.verbose:
+            print ""
+            print "approximate K matrix"
+            print_matrix(mat)
+            print "K (from exact eigenvectors)"
+            print_matrix(xmat)
             print "exact K matrix"
             print_matrix(m)
-            print "condition number of m", np.linalg.cond(m[:-1, :-1])
+            print ""
+            print "pseudo inverse K (from approximate eigenvectors)"
+            print_matrix(mat_inv)
+            print "pseudo inverse K (from log sums)"
+            print_matrix(mat_inv_alt)
+            print "pseudo inverse K (from exact eigenvectors)"
+            print_matrix(xmat_inv)
+        
+        mat_inv = mat_inv_alt
         
 
-
-        Kcond = np.dot(mat_inv, m)
-        print "conditioned matrix"
-        print_matrix(Kcond)
+#        print "pseudo inverse K * K (from exact eigenvectors)"
+#        print_matrix(xmat_inv * m)
+#        Kcond = np.dot(mat_inv, m)
+#        print "conditioned matrix (K_inv * K)"
+#        print_matrix(Kcond)
         print "reduced conditioned matrix"
-        print_matrix(np.dot(mat_inv[1:,1:], m[1:,1:]))
-        print "condition number of conditioned matrix", np.linalg.cond(Kcond[:-1,:-1])
+        Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
+        Kcond_full = np.dot(mat_inv, m)
+        print_matrix(Kcond)
+        if self.verbose:
+            print "condition number of truncated exact K", np.linalg.cond(m[:-1,:-1])
+        print "condition number of conditioned matrix", np.linalg.cond(Kcond)
+        print "condition number of conditioned matrix", np.linalg.cond(Kcond_full[:-1,:-1])
        
         viewer = ViewMSTSpectralDecomp(self.spect)
 
@@ -862,7 +889,7 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(5)
+#    np.random.seed(5)
     Ei, Eij = make_random_energies_complete(n)
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
@@ -873,4 +900,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=5, T=.05)
+    test_precond2(n=5, T=.01)
