@@ -900,4 +900,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=5, T=.01)
+    test_precond2(n=5, T=.1)

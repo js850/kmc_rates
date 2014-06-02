@@ -9,11 +9,15 @@ from kmc_rates._preconditioning import MSTSpectralDecomposition, print_matrix
 def make_random_energies_complete(nnodes):
     Ei = {}
     Eij = {}
-    for i in xrange(nnodes):
-        Ei[i] = np.random.uniform(-1,1)
+    Ei[0] = -10.
+    vals = np.random.uniform(.5,2,size=nnodes)
+    vals = np.cumsum(vals)
+    np.random.shuffle(vals)
+    for i in xrange(1,nnodes):
+        Ei[i] = vals[i]
     for i in xrange(nnodes):
         for j in xrange(i):
-            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.1, 1)
+            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.5, 1)
     return Ei, Eij 
 
 def make_rate_matrix(Ei, Eij, T=.05):
