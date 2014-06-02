@@ -7,6 +7,7 @@ import sys
 
 import numpy as np
 import scipy
+import scipy.misc
 import networkx as nx
 import pylab as plt
 
@@ -41,17 +42,16 @@ class ViewMSTSpectralDecomp(object):
             self.draw_nodes(self.spect.slist[m+1:])
         
         # draw edges
-        self.draw_edges(self.spect.cut_edges[:k], lw=.1)
-        self.draw_edges([self.spect.cut_edges[k]], color='r')
+        self.draw_edges(self.spect.cut_edges[:k], lw=.3, color='k--')
+        self.draw_edges([self.spect.cut_edges[k]], color='r--')
         if k < len(self.spect.slist):
             self.draw_edges(self.spect.cut_edges[(k+1):])
 
         # draw edges lightly that have been removed
-
         plt.show()
       
     def run(self):
-        self.mst = self.spect.compute_mst()
+        self.mst = self.spect._make_minimum_spanning_tree()
         self.pos = nx.spring_layout(self.mst)
         self.removed_edges = []
         
@@ -62,7 +62,7 @@ class ViewMSTSpectralDecomp(object):
             self.removed_edges = self.spect.cut_edges[:(k+1)]
         
 
-class MSTSpectralDecomposition(object):
+class MSTSpectralDecompositionOld(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
     def __init__(self, Ei, Eij, T=.1):
         self.Ei = Ei
@@ -421,7 +421,243 @@ class MSTSpectralDecomposition(object):
         print_matrix(v)
         print "eigenvectors (normalized to sum(v*v*pi) = 1)"
         print_matrix(self.eigenvectors)
+
+class MSTSpectralDecomposition(object):
+    """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
+    def __init__(self, Ei, Eij, T=.1, verbose=True):
+        self.Ei = Ei
+        self.Eij = Eij
+        self.T = T
+        self.verbose = verbose
+        self.nnodes = len(self.Ei)
+        self._make_node_to_index()
+        self._make_equilibrium_occupation_probabilities()
+        self.run()
+ 
+    def _make_node_to_index(self):
+        if hasattr(self, "node2index"):
+            return
+        nodes = sorted(self.Ei.iterkeys())
+        node2index = dict(((n, i) for i, n in enumerate(nodes)))
+        self.node_list = nodes
+        self.node2index = node2index
+
+    def _make_equilibrium_occupation_probabilities(self):
+        log_pi = np.array([-self.Ei[node] / self.T for node in self.node_list])
+        # normalize log_pi
+        log_sum_pi = scipy.misc.logsumexp(log_pi)
+        log_pi -= log_sum_pi
+        self.pi = np.exp(log_pi)
+        self.log_pi = log_pi
         
+        self.log_pi_dict = dict((self.node_list[i], lpi) for i, lpi in enumerate(self.log_pi))
+        
+        print "equilibrium occupation probability"
+        print_matrix(self.pi)
+
+    def _get_edge_energy(self, u, v):
+        try:
+            return self.Eij[(u,v)]
+        except KeyError:
+            return self.Eij[(v,u)]
+
+    def _make_minimum_spanning_tree(self):
+        self.graph = nx.Graph()
+        for i, E in self.Ei.iteritems():
+            self.graph.add_node(i, E=E)
+        for (i, j), E in self.Eij.iteritems():
+            self.graph.add_edge(i, j, E=E)
+        mst = nx.minimum_spanning_tree(self.graph, weight='E')
+        return mst
+
+    def _compute_barrier_function(self, mst, s, barrier_function, escape_function):
+        """compute the barrier function and escape function
+        
+        compute the maximum barrier separating each node from the sink node s
+        """
+        barrier_function[s] = 0.
+        escape_function[s] = 0. 
+        for parent, child in nx.bfs_edges(mst, s):
+            Ets = self._get_edge_energy(parent, child)
+            if parent == s or Ets > barrier_function[parent]:
+                barrier_function[child] = Ets
+            else:
+                barrier_function[child] = barrier_function[parent]
+            escape_function[child] = barrier_function[child] - self.Ei[child]
+
+    def _recompute_barrier_function(self, mst, s, barrier_function, escape_function):
+        """recompute the barrier and escape function"""
+        bar_new = dict()
+        esc_new = dict()
+        # compute the new barrier function for all nodes connected to s
+        self._compute_barrier_function(mst, s, bar_new, esc_new)
+        # if the new barrier function is less than the old then replace the old
+        for i, bi in bar_new.iteritems():
+            if bi < barrier_function[i]:
+                barrier_function[i] = bi
+            escape_function[i] = min(escape_function[i], barrier_function[i] - self.Ei[i])
+        barrier_function[s] = 0.
+        escape_function[s] = 0.
+
+    def _get_connected_sink(self, mst, s, sinks):
+        s2 = None
+        for parent, child in nx.bfs_edges(mst, s):
+            if child in sinks:
+                s2 = child
+                break
+        assert s2 is not None
+        return s2
+
+
+    def _find_cutting_edge(self, mst, s1, barrier_function, sinks):
+        """Find the cutting edge
+        
+        This is the edge with the maximum barrier in the path connecting s to 
+        another sink
+        """
+        s2 = self._get_connected_sink(mst, s1, sinks)
+        path = nx.shortest_path(mst, s1, s2)
+        if self.verbose:
+            print "path", path
+        Ets, i, j = max(((self._get_edge_energy(i,j), i, j) for i, j in izip(path, path[1:])))
+        assert barrier_function[i] == barrier_function[s1]
+#         assert barrier_function[]
+        return Ets, i, j
+
+    def _make_kth_eigenvector(self, mst, p, q, s):
+        """make the current eigenvector
+        
+        (p, q) is the cutting edge, and is already removed.  Assume that
+        p is the node that is still connected to the new sink s.
+        The eigenvector v[i] will be C1 for all nodes i connected to p, and
+        C2 for all nodes i connected to q.  It will be zero elsewhere.
+        C1 and C2 are determined by normalization and orthogonalization. In
+        particular, we force orthogonalization with respect to the 0th 
+        eigenvector, which is just np.ones(nnodes) 
+        """
+        S1 = nx.node_connected_component(mst, p)
+        S2 = nx.node_connected_component(mst, q)
+        if s in S2:
+            S1, S2 = S2, S1
+        assert s in S1 and s not in S2
+        
+        # compute the inverse sum of pi for all nodes in S1 and S2
+        isum_pi1 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S1])
+        isum_pi2 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S2])
+        norm = scipy.misc.logsumexp([isum_pi1, isum_pi2])
+        C1 =  np.exp(isum_pi1 - norm / 2.)
+        C2 = -np.exp(isum_pi2 - norm / 2.)
+        evec = np.zeros(self.nnodes)
+        evec[[self.node2index[node] for node in S1]] = C1
+        evec[[self.node2index[node] for node in S2]] = C2
+        return evec
+
+    def _test_eigenvectors(self): 
+        # test to see if the eigenvectors are orthonormal
+        print "\ntesting to see if the eigenvectors are normalized sum(v*v*pi) == 1"
+        for k in xrange(len(self.Ei)):
+            v = self.eigenvectors[:,k]
+            r = np.sum(v * v * self.pi)
+            if abs(r-1) > .1:
+                print "k", k, ":", r
+        print "testing to see if the eigenvectors are orthogonal sum(u*v*pi) == 0"
+        for k1 in xrange(len(self.Ei)):
+            for k2 in xrange(k1):
+                v1 = self.eigenvectors[:,k1]
+                v2 = self.eigenvectors[:,k2]
+                r = np.sum(v1 * v2 * self.pi)
+                if np.abs(r) > .01:
+                    print "k1 k2", k1, k2, ":", r
+
+        from tests.test_preconditioning import make_rate_matrix
+        m = make_rate_matrix(self.Ei, self.Eij, T=self.T)
+        print "testing to see if the the eigenvectors satisfy the eigenvalue equation dot(v*pi, dot(m, v)) = lambda"
+        for k in xrange(len(self.eigenvalues)):
+            v = self.eigenvectors[:,k]
+            l = np.dot(v*self.pi, np.dot(m, v))
+            print "k", k, ":", l, "=?=", self.eigenvalues[k], "normalized |diff|", np.abs((l-self.eigenvalues[k])/l)
+
+
+
+    def run(self):
+        self.mst = self._make_minimum_spanning_tree()
+        mst = self.mst
+
+        # the barrier function gives the minimax barrier separating
+        # a node from a sink node
+        barrier_function = dict()
+        # the escape function is usually barrier_function[i] - E[i]
+        escape_function = dict() # escape function
+
+        self.log_eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
+        self.eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
+        self.eigenvectors = np.zeros([self.nnodes, self.nnodes])
+        self.eigenvectors[:,0] = 1.
+        
+        k = 0
+        
+        # the first sink is the node with the lowest energy
+        s1 = min((((E, n) for n, E in self.Ei.iteritems())))[1]
+        sinks = set([s1])
+        self.slist = [s1]
+        self.cut_edges = []
+        
+        # compute the initial values of the barrier function and escape function
+        self._compute_barrier_function(mst, s1, barrier_function, escape_function)
+
+        for k in xrange(1, len(self.Ei)):
+            # the sink is the node with the maximum value of escape function
+            s = max(((v, i) for i, v in escape_function.iteritems()))[1]
+            
+            if self.verbose:
+                print "\niteration", k
+                print "current sink", s
+                print "past sinks", self.slist
+                print "total # edges", mst.number_of_edges()
+                print "size of component connected to current sink", len(nx.node_connected_component(mst, s))
+            
+                for i, ui in barrier_function.iteritems(): 
+                    print "  barrier_function[",i,"] = ", ui
+            
+            # find the new cutting edge
+            Epq, p, q = self._find_cutting_edge(mst, s, barrier_function, sinks)
+            if self.verbose:
+                s2 = self._get_connected_sink(mst, s, sinks)
+                print "p q Epq", p, q, Epq
+                print "s Es   ", s, self.Ei[s], "sold Esold", s2, self.Ei[s2] 
+            
+            # save the eigenvalue
+            self.log_eigenvalues[k] = -(Epq - self.Ei[s]) / self.T
+            self.eigenvalues[k] = - np.exp(self.log_eigenvalues[k])
+            
+            # remove the cutting edge
+            mst.remove_edge(p, q)
+            if self.verbose:
+                print "removing edge (",p,",",q,")"
+            
+            # compute the eigenvector
+            self.eigenvectors[:,k] = self._make_kth_eigenvector(mst, p, q, s)
+            
+            # recompute barrier_function and escape_function
+            self._recompute_barrier_function(mst, s, barrier_function, escape_function)
+            
+            sinks.add(s)
+            self.slist.append(s)
+            self.cut_edges.append((p,q))
+
+        if self.verbose:
+            self._test_eigenvectors()
+            
+            print "\neigenvalues"
+            print_matrix(self.eigenvalues)
+    
+            print "eigenvectors (normalized to norm==1)"
+            v = self.eigenvectors / (np.sqrt(np.sum(self.eigenvectors**2, axis=0)))[np.newaxis,:]
+            print_matrix(v)
+            print "eigenvectors (normalized to sum(v*v*pi) = 1)"
+            print_matrix(self.eigenvectors)
+
+
         
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
@@ -582,4 +818,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=10, T=.05)
+    test_precond1()#2(n=10, T=.05)
