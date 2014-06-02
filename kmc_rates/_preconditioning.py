@@ -524,7 +524,7 @@ class MSTSpectralDecomposition(object):
 #         assert barrier_function[]
         return Ets, i, j
 
-    def _make_kth_eigenvector(self, mst, p, q, s):
+    def _make_kth_eigenvector(self, mst, k, p, q, s):
         """make the current eigenvector
         
         (p, q) is the cutting edge, and is already removed.  Assume that
@@ -545,12 +545,22 @@ class MSTSpectralDecomposition(object):
         isum_pi1 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S1])
         isum_pi2 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S2])
         norm = scipy.misc.logsumexp([isum_pi1, isum_pi2])
-        C1 =  np.exp(isum_pi1 - norm / 2.)
-        C2 = -np.exp(isum_pi2 - norm / 2.)
-        evec = np.zeros(self.nnodes)
-        evec[[self.node2index[node] for node in S1]] = C1
-        evec[[self.node2index[node] for node in S2]] = C2
-        return evec
+        logC1 = isum_pi1 - norm / 2.
+        logC2 = isum_pi2 - norm / 2.
+        is1 = np.array([self.node2index[node] for node in S1])
+        is2 = np.array([self.node2index[node] for node in S2])
+        
+        self.eigenvectors[:,k] = 0.
+        self.eigenvectors[is1, k] =  np.exp(logC1)
+        self.eigenvectors[is2, k] = -np.exp(logC2)
+        
+        self.log_eigenvectors[:,k] = 1.
+        self.log_eigenvectors[is1, k] = logC1
+        self.log_eigenvectors[is2, k] = logC2
+        
+        self.eigenvector_indicator[:,k] = 0
+        self.eigenvector_indicator[is1,k] =  1
+        self.eigenvector_indicator[is2,k] = -1
 
     def _test_eigenvectors(self): 
         # test to see if the eigenvectors are orthonormal
@@ -593,6 +603,8 @@ class MSTSpectralDecomposition(object):
         self.eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
         self.eigenvectors = np.zeros([self.nnodes, self.nnodes])
         self.eigenvectors[:,0] = 1.
+        self.eigenvector_indicator = np.zeros(self.eigenvectors.shape)
+        self.log_eigenvectors = np.zeros(self.eigenvectors.shape)
         
         k = 0
         
@@ -636,7 +648,7 @@ class MSTSpectralDecomposition(object):
                 print "removing edge (",p,",",q,")"
             
             # compute the eigenvector
-            self.eigenvectors[:,k] = self._make_kth_eigenvector(mst, p, q, s)
+            self._make_kth_eigenvector(mst, k, p, q, s)
             
             # recompute barrier_function and escape_function
             self._recompute_barrier_function(mst, s, barrier_function, escape_function)
@@ -658,11 +670,45 @@ class MSTSpectralDecomposition(object):
             print_matrix(self.eigenvectors)
 
 
-        
+
+
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1):
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
         self.run()
+
+    def logaddexp(self, v1, v2):
+        if np.isnan(v1):
+            return v2
+        else:
+            return np.logaddexp(v1, v2)
+        
+
+    def make_K_inv(self):
+        log_kinv_plus = np.zeros([self.spect.nnodes, self.spect.nnodes])
+        log_kinv_minus = np.zeros([self.spect.nnodes, self.spect.nnodes])
+        levec = self.spect.log_eigenvectors
+        ind = self.spect.eigenvector_indicator
+        leval = self.spect.log_eigenvalues
+        for i in xrange(self.spect.nnodes):
+            for j in xrange(self.spect.nnodes):
+                for k in xrange(1, self.spect.nnodes):
+                    indicator = -1 * ind[i,k] * ind[j,k]
+                    if indicator == 0:
+                        continue
+                    val = - leval[k] + levec[i,k] + levec[j,k] + self.spect.log_pi[j]
+                    if indicator > 0:
+                        log_kinv_plus[i,j] = self.logaddexp(log_kinv_plus[i,j], val)
+                    else:
+                        log_kinv_minus[i,j] = self.logaddexp(log_kinv_minus[i,j], val)
+        
+        # now merge the positive and negative components of log_kinv
+        max_vals = np.where(log_kinv_plus > log_kinv_minus, log_kinv_plus, log_kinv_minus)
+        kinv = np.exp(log_kinv_plus - max_vals) - np.exp(log_kinv_minus - max_vals)
+        kinv *= np.exp(max_vals)
+        
+        return kinv
+                
     
     def run(self):
         n = len(self.spect.Ei)
@@ -675,11 +721,18 @@ class MSTPreconditioning(object):
         for k in xrange(1,n):
             v = evecs[:,k]
             mat += evals[k] * np.outer(v, v * pi)
-            mat_inv -= 1./evals[k] * np.outer(v, v * pi)
+            mat_inv += 1./evals[k] * np.outer(v, v * pi)
         print "approximate K matrix"
         print_matrix(mat)
         print "approximate inv K"
         print_matrix(mat_inv)
+        
+        if True:
+            mat_inv_alt = self.make_K_inv()
+            print "approximate inv K make from log sums"
+            print_matrix(mat_inv_alt)
+            mat_inv = mat_inv_alt
+        
 
         if True:       
             m, eval, evec = get_eigs(self.spect.Ei, self.spect.Eij, T=self.spect.T)
@@ -692,6 +745,8 @@ class MSTPreconditioning(object):
         Kcond = np.dot(mat_inv, m)
         print "conditioned matrix"
         print_matrix(Kcond)
+        print "reduced conditioned matrix"
+        print_matrix(np.dot(mat_inv[1:,1:], m[1:,1:]))
         print "condition number of conditioned matrix", np.linalg.cond(Kcond[:-1,:-1])
        
         viewer = ViewMSTSpectralDecomp(self.spect)
@@ -807,7 +862,7 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-#    np.random.seed(3)
+    np.random.seed(5)
     Ei, Eij = make_random_energies_complete(n)
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
@@ -818,4 +873,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond1()#2(n=10, T=.05)
+    test_precond2(n=5, T=.05)
