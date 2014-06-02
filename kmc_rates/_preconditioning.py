@@ -148,12 +148,16 @@ class MSTSpectralDecomposition(object):
         return E, i, j
         
     
-    def compute_kth_eigenvector_components(self, mst, s):
+    def compute_kth_eigenvector_components(self, mst, s, p, q):
         """compute the non zero components of the kth eigenvector"""
-        evec = dict()
-        for i in nx.node_connected_component(mst, s):
-            evec[i] = 1.
-        return evec
+        
+        S1 = dict(((i, 1.) for i in nx.node_connected_component(mst, p)))
+        S2 = dict(((i, 1.) for i in nx.node_connected_component(mst, q)))
+        if s in S2:
+            S1, S2 = S2, S1
+        assert s in S1
+        assert s not in S2
+        return S1, S2
 
     def compute_kth_eigenvector_components_committor(self, mst, s, sold):
         from kmc_rates.rates_linalg import CommittorLinalg
@@ -201,29 +205,53 @@ class MSTSpectralDecomposition(object):
             v = eigenvectors[:,k]
             eigenvectors[:,k] /= np.sqrt(np.dot(v, v * self.pi))
     
-    def matricize_eigenvectors(self, evecs, slist):
+    def _make_node_to_index(self):
+        if hasattr(self, "node2index"):
+            return
         nodes = sorted(self.Ei.iterkeys())
         node2index = dict(((n, i) for i, n in enumerate(nodes)))
         self.node_list = nodes
         self.node2index = node2index
         self._make_equilibrium_occupation_probabilities()
         
-        eigenvectors = np.zeros([len(nodes), len(nodes)])
+    
+    def matricize_eigenvectors(self, evecs, slist):
+        self._make_node_to_index()
+        
+        eigenvectors = np.zeros([len(self.node_list), len(self.node_list)])
         eigenvectors[:,0] = 1.
         for k, evec in evecs.iteritems():
-#             if True:
-#                 # improve accuracy of the eigenvectors. (I'm not sure this is actually correct)
-#                 assert min(evec.itervalues()) > 0
-#                 pnorm = self.pi_dict[slist[k-1]]
-#                 small = sum((self.pi_dict[node] for node in evec.iterkeys()))
-#                 small = np.sqrt(small / pnorm)
-#                 big = -1./small
-#                 eigenvectors[node2index[slist[k-1]],k] = small
             for node, v in evec.iteritems():
-                i = node2index[node]
-#                 eigenvectors[i,k] = v * big
+                i = self.node2index[node]
                 eigenvectors[i,k] = v
-#             self.improve_eigenvector(eigenvectors[:,k], k)
+        
+        print "eigenvectors before any fiddling"
+        print_matrix(eigenvectors)
+        self.normalize_eigenvectors(eigenvectors)
+
+        return eigenvectors
+    
+    def matricize_eigenvectors_new(self, S1list, S2list):
+        self._make_node_to_index()
+
+        eigenvectors = np.zeros([len(self.node_list), len(self.node_list)])
+        eigenvectors[:,0] = 1.
+        
+        
+        for k in xrange(1, len(self.Ei)):
+            S1 = set(S1list[k].iterkeys())
+            S2 = set(S2list[k].iterkeys())
+            
+            isum_pi1 = 1./sum((self.pi_dict[node] for node in S1))
+            isum_pi2 = 1./sum((self.pi_dict[node] for node in S2))
+            C1 =  isum_pi1 / np.sqrt(isum_pi1 + isum_pi2)
+            C2 = -isum_pi2 / np.sqrt(isum_pi1 + isum_pi2)
+            for node in S1:
+                i = self.node2index[node]
+                eigenvectors[i,k] = C1
+            for node in S2:
+                i = self.node2index[node]
+                eigenvectors[i,k] = C2
         
         print "eigenvectors before any fiddling"
         print_matrix(eigenvectors)
@@ -289,6 +317,7 @@ class MSTSpectralDecomposition(object):
 
         delta = np.zeros(len(self.Ei)) # used to compute eigenvalues
         evecs = dict() # eigenvectors
+        evecs2 = dict() # eigenvectors
         
         k = 0
         s1 = self.sorted_indices[0]
@@ -337,7 +366,7 @@ class MSTSpectralDecomposition(object):
             mst.remove_edge(p, q)
             
             # compute the eigenvector components in the simplified way
-            evecs[k] = self.compute_kth_eigenvector_components(mst, s)
+            evecs[k], evecs2[k] = self.compute_kth_eigenvector_components(mst, s, p, q)
             
             if True:
                 print "evec simple", evecs[k]
@@ -364,7 +393,8 @@ class MSTSpectralDecomposition(object):
         self.eigenvalues[0] = 0.
         
         # process eigenvectors
-        self.eigenvectors = self.matricize_eigenvectors(evecs, slist)
+#        self.eigenvectors = self.matricize_eigenvectors(evecs, slist)
+        self.eigenvectors = self.matricize_eigenvectors_new(evecs, evecs2)
 
         self._test_orthogonality()
 
@@ -375,7 +405,7 @@ class MSTSpectralDecomposition(object):
             self.normalize_eigenvectors(self.eigenvectors)
             self._test_orthogonality()
         
-        if True:  
+        if False:  
             print "\ntrying to improve eigenvectors by graeme schmidt orthogonalization"      
             self.improve_eigenvectors_by_orthogonalization()
             self.normalize_eigenvectors(self.eigenvectors)
@@ -541,7 +571,7 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(3)
+#    np.random.seed(3)
     Ei, Eij = make_random_energies_complete(n)
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
@@ -552,4 +582,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=20, T=.05)
+    test_precond2(n=10, T=.05)
