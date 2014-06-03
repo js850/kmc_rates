@@ -10,15 +10,15 @@ def make_random_energies_complete(nnodes):
     Ei = {}
     Eij = {}
 #    Ei[0] = -10.
-    vals = np.random.uniform(.5,2,size=nnodes)
-    vals[0] = -10.
+    vals = np.random.uniform(.1,3,size=nnodes)
+    vals[0] = -1.
     vals = np.cumsum(vals)
     np.random.shuffle(vals)
     for i in xrange(nnodes):
         Ei[i] = vals[i]
     for i in xrange(nnodes):
         for j in xrange(i):
-            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.5, 1)
+            Eij[(j,i)] = max(Ei[i], Ei[j]) + np.random.uniform(.1, 3)
     return Ei, Eij 
 
 def make_rate_matrix(Ei, Eij, T=.05):

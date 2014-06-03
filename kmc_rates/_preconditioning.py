@@ -10,7 +10,6 @@ import scipy
 import scipy.misc
 import networkx as nx
 import pylab as plt
-from pysal.core.IOHandlers import dat
 
 def print_matrix(m, fmt="%9.3g"):
     print np.array_str(m, precision=3, max_line_width=300)
@@ -846,7 +845,28 @@ class MSTPreconditioning(object):
         kinv *= np.exp(max_vals)
         
         return kinv
-                
+    
+    def make_submatrix(self, K, i):
+        n = K.shape[0]
+        M = np.zeros([n-1,n-1])
+        M[:i,:i] = K[:i,:i]
+        M[i:,i:] = K[i+1:,i+1:]
+        return M
+    
+    def test_result(self, K, Kinv, iremove):
+        i = iremove
+        Ksub = self.make_submatrix(K, iremove)
+        Kinv_sub = self.make_submatrix(Kinv, iremove)
+        print "\nremoving the row and column", iremove
+        print "eigenvalues of submatrix(K)"
+        print_matrix(np.linalg.eigvals(Ksub))
+        print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+        red = Kinv_sub.dot(Ksub)
+        print_matrix(np.linalg.eigvals(red))
+        print "condition number:", np.linalg.cond(red)
+        print ""
+
+        
     
     def run(self):
         n = len(self.spect.Ei)
@@ -901,26 +921,47 @@ class MSTPreconditioning(object):
 #        print "conditioned matrix (K_inv * K)"
 #        print_matrix(Kcond)
         print "\n(pseudo inverse K) * K (approx)"
-        print_matrix(xmat_inv.dot(m))
-        print "(pseudo inverse K) * K (exact)"
         print_matrix(mat_inv.dot(m))
+        print "(pseudo inverse K) * K (exact)"
+        print_matrix(xmat_inv.dot(m))
+        print "\nremoving the first row and column"
         print "submatrix(pseudo inverse K) * submatrix(K) (exact)"
-        print_matrix(np.dot(xmat_inv[1:,1:], m[1:,1:]))
-
-        Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
-        Kcond_full = np.dot(mat_inv, m)
-        print_matrix(Kcond)
-        if self.verbose:
-            print "condition number of truncated exact K", np.linalg.cond(m[:-1,:-1])
-        print "condition number of conditioned matrix", np.linalg.cond(Kcond)
-        print "condition number of conditioned matrix", np.linalg.cond(Kcond_full[:-1,:-1])
-       
+        sl = slice(1,None)
+        print_matrix(np.dot(xmat_inv[sl,sl], m[sl,sl]))
+        print "eigenvalues of submatrix(K)"
+        print_matrix(np.linalg.eigvals(m[sl,sl]))
+        print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+        print_matrix(np.linalg.eigvals(xmat_inv[sl,sl].dot(m[sl,sl])))
+        print "condition number:", np.linalg.cond(xmat_inv[sl,sl].dot(m[sl,sl]))
+        
         if True:
+            print "\nnow removing the last row and column"
+            sl = slice(None,-1)
+            print "eigenvalues of submatrix(K)"
+            print_matrix(np.linalg.eigvals(m[sl,sl]))
+            print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+            print_matrix(np.linalg.eigvals(xmat_inv[sl,sl].dot(m[sl,sl])))
+            print "condition number:", np.linalg.cond(xmat_inv[sl,sl].dot(m[sl,sl]))
+            print ""
+
+        for i in xrange(self.spect.nnodes):
+            self.test_result(m, xmat_inv, i)
+        
+        if False:
+            Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
+            Kcond_full = np.dot(mat_inv, m)
+    #        print_matrix(Kcond)
+            if self.verbose:
+                print "condition number of submatrix", np.linalg.cond(m[:-1,:-1])
+            print "condition number of conditioned submatrix", np.linalg.cond(Kcond)
+            print "condition number of conditioned submatrix", np.linalg.cond(Kcond_full[:-1,:-1])
+       
+        if False:
             print "\ninvert the pseudo inverse"
             print_matrix(np.linalg.inv(xmat_inv))
             print "rank 1 update: remove the last row and column"
             A = m[:-1,:-1]
-            print "the eigenvalues of the reduced matrix"
+            print "the eigenvalues of the sub matrix"
             print np.linalg.eigvals(A)
             print np.linalg.eigvals(m[1:,1:])
             Ainv = xmat_inv[:-1,:-1] - np.outer(m[:-1,-1], m[-1,:-1]) / m[-1,-1]
@@ -1056,7 +1097,7 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(5)
+    np.random.seed(6)
     Ei, Eij = make_random_energies_complete(n)
     print "energies", Ei
     precond = MSTPreconditioning(Ei, Eij, T=T)
