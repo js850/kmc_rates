@@ -10,6 +10,7 @@ import scipy
 import scipy.misc
 import networkx as nx
 import pylab as plt
+from pysal.core.IOHandlers import dat
 
 def print_matrix(m, fmt="%9.3g"):
     print np.array_str(m, precision=3, max_line_width=300)
@@ -59,6 +60,137 @@ class ViewMSTSpectralDecomp(object):
             self.draw(k)
             
             self.mst.remove_edge(*self.spect.cut_edges[k])
+            self.removed_edges = self.spect.cut_edges[:(k+1)]
+
+class ViewMSTSpectralDecompDgraph(object):
+    def __init__(self, spect):
+        self.spect = spect
+        self.run()
+
+    def draw_nodes(self, nodes, color='k'):
+        xypos = [self.pos[n] for n in nodes]
+        x = [xy[0] for xy in xypos]
+        y = [xy[1] for xy in xypos]
+        plt.scatter(x, y, c=color, linewidths=0, s=60)
+
+    def draw_edges_old(self, edges, color='k', lw=1.):
+        for u, v in edges:
+            xy = np.array([self.pos[u], self.pos[v]])
+            plt.plot(xy[:,0], xy[:,1], color, lw=lw)
+    
+    def draw_edges(self, edges, color='k', lw=1.):
+        from matplotlib.collections import LineCollection
+        line_segments = []
+        line_colors = []
+        eoffset = .1
+#        line_segments, line_colors = self.dgraph._get_line_segments(self.dgraph.tree_graph, eoffset=.1)
+        for u, v in edges:
+            if self.spect.Ei[u] < self.spect.Ei[v]:
+                u, v = v, u
+#            tree = self.dgraph_get_ts_tree(u, v)
+            trees = [self.dgraph_get_leaf(u)]#, self.dgraph_get_leaf(v)]
+#            parents = [t.parent for t in trees]
+#            trees += parents
+            for tree in trees:
+                self.dgraph._get_line_segment_single(line_segments, line_colors, tree, eoffset)
+#            tree = self.dgraph_get_leaf(u)
+#            tree = self.dgraph_get_leaf(v)
+#            self.dgraph._get_line_segment_single(line_segments, line_colors, tree, eoffset)
+#            parents = tree.parent
+#            self.dgraph._get_line_segment_single(line_segments, line_colors, tree, eoffset)
+#        linecollection = LineCollection([ [(x[0],y[0]), (x[1],y[1])] for x,y in line_segments])
+#        linecollection.set_linewidth(lw)
+#        linecollection.set_color(color)
+#        ax = plt.gca()
+#        ax.add_collection(linecollection)
+
+        for x, y in line_segments:
+            plt.plot(x, y, color, lw=lw)
+            
+
+    
+    def draw(self, k):
+        plt.clf()
+        
+        m=k+1
+        self.draw_nodes(self.spect.slist[:m], color='b')
+        self.draw_nodes([self.spect.slist[m]], color='r')
+        if m < len(self.spect.slist):
+            self.draw_nodes(self.spect.slist[m+1:])
+        
+        # draw edges
+        self.draw_edges(self.spect.cut_edges[:k], lw=.3, color='k--')
+        self.draw_edges([self.spect.cut_edges[k]], color='r--')
+        if k < len(self.spect.slist):
+            self.draw_edges(self.spect.cut_edges[(k+1):])
+
+        # draw edges lightly that have been removed
+        plt.show()
+    
+    def draw_old(self, k):
+        m=k+1
+        groups = [self.spect.slist[:m]]
+        groups.append([self.spect.slist[m]])
+        colors = ["red", "black"]
+            
+#        self.dgraph.color_by_group(groups, colors=colors)
+#        self.dgraph.plot(show_minima=True)
+#        self.dgraph.show()    
+
+    
+    def dgraph_get_leaf(self, nodeid):
+        for leaf in self.dgraph.tree_graph.leaf_iterator():
+            if leaf.data["minimum"].nodeid == nodeid:
+                return leaf
+    
+    def dgraph_get_ts_tree(self, u, v):
+        from pele.utils.disconnectivity_graph import TreeLeastCommonAncestor
+        leafu = self.dgraph_get_leaf(u)
+        leafv = self.dgraph_get_leaf(v)
+        lca = TreeLeastCommonAncestor([leafu, leafv])
+        return lca.least_common_ancestor
+    
+    def make_dgraph(self, mst):
+        from pele.storage import Database
+        from pele.utils.disconnectivity_graph import DisconnectivityGraph, database2graph
+        db = Database()
+        self.node2minimum = dict()
+        for u, v, data in mst.edges_iter(data=True):
+            Ets = data["energy"]
+            mu = db.addMinimum(self.spect.Ei[u], [0])
+            mv = db.addMinimum(self.spect.Ei[v], [0])
+            mu.nodeid = u
+            mv.nodeid = v
+            self.node2minimum[u] = mu
+            self.node2minimum[v] = mv
+            db.addTransitionState(Ets, [0], mu, mv)
+        
+        
+        dgraph = DisconnectivityGraph(database2graph(db), nlevels=self.spect.nnodes+10)
+        dgraph.calculate()
+        
+        line_segments = dgraph._get_line_segments(dgraph.tree_graph)
+        
+        # get the minima layout
+        xpos, minima = dgraph.get_minima_layout()
+        ypos = [m.energy for m in minima]
+        self.pos = dict(((m.nodeid, (x, y)) for m, x, y in izip(minima, xpos, ypos)))
+        print "positions", self.pos
+        
+        # get the transition states
+        return dgraph
+        
+    
+    def run(self):
+        self.mst = self.spect._make_minimum_spanning_tree()
+        self.dgraph = self.make_dgraph(self.mst)
+#        self.pos = nx.spring_layout(self.mst)
+        self.removed_edges = []
+        
+        for k in xrange(len(self.spect.Ei)-1):
+            self.draw(k)
+            
+#            self.mst.remove_edge(*self.spect.cut_edges[k])
             self.removed_edges = self.spect.cut_edges[:(k+1)]
 
 def _normalize_eigenvectors(eigenvectors, pi):
@@ -469,10 +601,10 @@ class MSTSpectralDecomposition(object):
     def _make_minimum_spanning_tree(self):
         self.graph = nx.Graph()
         for i, E in self.Ei.iteritems():
-            self.graph.add_node(i, E=E)
+            self.graph.add_node(i, energy=E)
         for (i, j), E in self.Eij.iteritems():
-            self.graph.add_edge(i, j, E=E)
-        mst = nx.minimum_spanning_tree(self.graph, weight='E')
+            self.graph.add_edge(i, j, energy=E)
+        mst = nx.minimum_spanning_tree(self.graph, weight='energy')
         return mst
 
     def _compute_barrier_function(self, mst, s, barrier_function, escape_function):
@@ -768,7 +900,13 @@ class MSTPreconditioning(object):
 #        Kcond = np.dot(mat_inv, m)
 #        print "conditioned matrix (K_inv * K)"
 #        print_matrix(Kcond)
-        print "reduced conditioned matrix"
+        print "\n(pseudo inverse K) * K (approx)"
+        print_matrix(xmat_inv.dot(m))
+        print "(pseudo inverse K) * K (exact)"
+        print_matrix(mat_inv.dot(m))
+        print "submatrix(pseudo inverse K) * submatrix(K) (exact)"
+        print_matrix(np.dot(xmat_inv[1:,1:], m[1:,1:]))
+
         Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
         Kcond_full = np.dot(mat_inv, m)
         print_matrix(Kcond)
@@ -918,8 +1056,9 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-#    np.random.seed(5)
+    np.random.seed(5)
     Ei, Eij = make_random_energies_complete(n)
+    print "energies", Ei
     precond = MSTPreconditioning(Ei, Eij, T=T)
     
     

@@ -9,11 +9,12 @@ from kmc_rates._preconditioning import MSTSpectralDecomposition, print_matrix
 def make_random_energies_complete(nnodes):
     Ei = {}
     Eij = {}
-    Ei[0] = -10.
+#    Ei[0] = -10.
     vals = np.random.uniform(.5,2,size=nnodes)
+    vals[0] = -10.
     vals = np.cumsum(vals)
     np.random.shuffle(vals)
-    for i in xrange(1,nnodes):
+    for i in xrange(nnodes):
         Ei[i] = vals[i]
     for i in xrange(nnodes):
         for j in xrange(i):
