@@ -778,6 +778,21 @@ class MSTPreconditioning(object):
         print "condition number of conditioned matrix", np.linalg.cond(Kcond_full[:-1,:-1])
        
         if True:
+            print "\ninvert the pseudo inverse"
+            print_matrix(np.linalg.inv(xmat_inv))
+            print "rank 1 update: remove the last row and column"
+            A = m[:-1,:-1]
+            print "the eigenvalues of the reduced matrix"
+            print np.linalg.eigvals(A)
+            print np.linalg.eigvals(m[1:,1:])
+            Ainv = xmat_inv[:-1,:-1] - np.outer(m[:-1,-1], m[-1,:-1]) / m[-1,-1]
+            print_matrix(A)
+            print_matrix(Ainv)
+            print_matrix(A.dot(Ainv))
+            
+            
+        
+        if False:
             print "\ntest if it is a pseudo inverse"
             print_matrix(mat.dot(mat_inv).dot(mat))
             print_matrix(mat)
