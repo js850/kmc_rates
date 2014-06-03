@@ -758,6 +758,7 @@ class MSTPreconditioning(object):
             print_matrix(mat_inv_alt)
             print "pseudo inverse K (from exact eigenvectors)"
             print_matrix(xmat_inv)
+            
         
         mat_inv = mat_inv_alt
         
@@ -776,7 +777,20 @@ class MSTPreconditioning(object):
         print "condition number of conditioned matrix", np.linalg.cond(Kcond)
         print "condition number of conditioned matrix", np.linalg.cond(Kcond_full[:-1,:-1])
        
+        if True:
+            print "\ntest if it is a pseudo inverse"
+            print_matrix(mat.dot(mat_inv).dot(mat))
+            print_matrix(mat)
+            print "\nare they the same?"
+            print_matrix(mat_inv.dot(mat).dot(mat_inv))
+            print_matrix(mat_inv)
+            print "\nis symmetric?"
+            print_matrix(mat.dot(mat_inv))
+            print "\nis symmetric?"
+            print_matrix(mat_inv.dot(mat))
+
         viewer = ViewMSTSpectralDecomp(self.spect)
+        
 
  
 #
