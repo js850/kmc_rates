@@ -812,6 +812,7 @@ class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, T=0.1, verbose=True):
         self.verbose = verbose
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
+        self.make_log_rate_matrix()
         self.run()
 
     def logaddexp(self, v1, v2):
@@ -846,6 +847,71 @@ class MSTPreconditioning(object):
         
         return kinv
     
+    def make_log_rate_matrix(self):
+        indicator = np.zeros(self.spect.eigenvectors.shape)
+        logK = np.zeros(indicator.shape)
+        for (i,j), Eij in self.spect.Eij.iteritems():
+            logK[i,j] = -(Eij - self.spect.Ei[i]) / self.spect.T
+            logK[j,i] = -(Eij - self.spect.Ei[j]) / self.spect.T
+            indicator[i,j] = 1
+            indicator[j,i] = 1
+        for i in xrange(self.spect.nnodes):
+            ind = np.where(indicator[i,:]>0)
+            log_sumK = scipy.misc.logsumexp(logK[i,ind])
+            indicator[i,i] = -1
+            logK[i,i] = log_sumK
+        self.logK = logK
+        self.logK_indicator = indicator
+            
+        
+    
+    def make_preconditioned_submatrix(self, iremove):
+        ilist = range(iremove) + range(iremove+1,self.spect.nnodes)
+        assert len(ilist) == self.spect.nnodes - 1
+        nnew = self.spect.nnodes - 1
+        M = np.zeros([nnew, nnew])
+        levecs = self.spect.log_eigenvectors
+        ind = self.spect.eigenvector_indicator
+        levals = self.spect.log_eigenvalues
+
+        for inew in xrange(nnew): # index i
+            i = ilist[inew]
+            for jnew in xrange(nnew): # index j
+                j = ilist[jnew]
+                sum_logval_pos = np.nan
+                sum_logval_neg = np.nan
+                for n in xrange(1,self.spect.nnodes): # eigenvalue number
+                    for k in xrange(self.spect.nnodes): # matrix multiplication index
+                        if k == iremove:
+                            continue
+                        indicator = -1 * ind[i,n] * ind[k,n] * self.logK_indicator[k,j]
+                        if indicator == 0:
+                            continue
+                        logval = (-levals[n]
+                                  + levecs[i,n]
+                                  + levecs[k,n]
+                                  + self.spect.log_pi[k]
+                                  + self.logK[k,j]
+                                  )
+                        if indicator > 0:
+                            sum_logval_pos = self.logaddexp(sum_logval_pos, logval)
+                        else:
+                            sum_logval_neg = self.logaddexp(sum_logval_neg, logval)
+                if np.isnan(sum_logval_pos):
+                    vp = 0
+                else:
+                    vp = np.exp(sum_logval_pos)
+                if np.isnan(sum_logval_neg):
+                    vn = 0
+                else:
+                    vn = np.exp(sum_logval_neg)
+#                print sum_logval_pos, sum_logval_neg, vp, vn
+                M[inew,jnew] = vp - vn
+#        print M
+        return M
+
+        
+    
     def make_submatrix(self, K, i):
         n = K.shape[0]
         M = np.zeros([n-1,n-1])
@@ -857,15 +923,30 @@ class MSTPreconditioning(object):
         i = iremove
         Ksub = self.make_submatrix(K, iremove)
         Kinv_sub = self.make_submatrix(Kinv, iremove)
-        print "\nremoving the row and column", iremove
-        print "eigenvalues of submatrix(K)"
-        print_matrix(np.linalg.eigvals(Ksub))
-        print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
         red = Kinv_sub.dot(Ksub)
-        print_matrix(np.linalg.eigvals(red))
-        print "condition number:", np.linalg.cond(red)
-        print ""
-
+        cond = np.linalg.cond(red)
+        Ksub_cond = self.make_preconditioned_submatrix(iremove)
+        cond_approx = np.linalg.cond(Ksub_cond)
+        if self.spect.pi[iremove] > .1 or cond < 1e5 or cond_approx < 1e5:
+            print "\nremoving the row and column", iremove
+            print "pi of this node", self.spect.pi[iremove]
+#            print "(submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+#            print_matrix(red)
+            print "eigenvalues of submatrix(K)"
+            print_matrix(np.linalg.eigvals(Ksub))
+            print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+            print_matrix(np.linalg.eigvals(red))
+            print "singular values of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+            print_matrix(np.linalg.svd(red)[1])
+            print "condition number:", cond
+            print ""
+#            print "(submatrix(pseudo inverse K) * submatrix(K)) (approx)"
+#            print_matrix(Ksub_cond)
+            print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (approx)"
+            print_matrix(np.linalg.eigvals(Ksub_cond))
+            print "singular values of (submatrix(pseudo inverse K) * submatrix(K)) (approx)"
+            print_matrix(np.linalg.svd(Ksub_cond)[1])
+            print "condition number:", cond_approx
         
     
     def run(self):
@@ -986,27 +1067,25 @@ class MSTPreconditioning(object):
         viewer = ViewMSTSpectralDecomp(self.spect)
         
 
+class MSTPreconditioning2(MSTPreconditioning):
+    def __init__(self, Ei, Eij, sinks, T=0.1, verbose=True):
+        self.verbose = verbose
+        assert len(sinks) == 1
+        Ei = self.prepare_Ei(Ei, sinks)
+        self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
+        self.run()
+    
+    def prepare_Ei(self, Ei, sinks):
+        self.Ei_orig = Ei.copy()
+        Emin = min(Ei.itervalues())
+        for s in sinks:
+            Ei[s] = Emin - 10
+        return Ei
  
 #
 # only testing below here
 #
 
-#def test7():
-#    E = dict()
-#    E[1] = -13.
-#    E[2] = -12.
-#    E[3] = -10.5
-#    E[5] = -9.2
-#    E[6] = -9.
-#    E[7] = -8.5
-#    E[(2,3)] = -6
-#    E[4] = -4.3
-#    E[(4,3)] = -4.2
-#    E[(5,6)] = -4.11 
-#    E[(4,5)] = -4. 
-#    E[(1,2)] = 
-#    E[(1,4)] = 
-#    E[(1,6)] = 
 
 def test1():
     from numpy import exp
@@ -1097,10 +1176,16 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(6)
+#    np.random.seed(6)
     Ei, Eij = make_random_energies_complete(n)
     print "energies", Ei
     precond = MSTPreconditioning(Ei, Eij, T=T)
+    
+def test_precond3(n=8, T=.01):
+#    np.random.seed(6)
+    Ei, Eij = make_random_energies_complete(n)
+    print "energies", Ei
+    precond = MSTPreconditioning2(Ei, Eij, [0], T=T)
     
     
 
@@ -1109,4 +1194,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=5, T=.1)
+    test_precond2(n=20, T=.1)
