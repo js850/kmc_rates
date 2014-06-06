@@ -811,6 +811,47 @@ class MSTSpectralDecomposition(object):
             print_matrix(self.eigenvectors)
             print ""
 
+def subtract_exp(pos, neg):
+    if np.isnan(pos):
+        p = 0.
+    else:
+        p = np.exp(pos)
+    if np.isnan(neg):
+        n = 0.
+    else:
+        n = np.exp(neg)
+    return p - n
+    
+def logaddexp(v1, v2):
+    if np.isnan(v1):
+        return v2
+    else:
+        return np.logaddexp(v1, v2)
+
+class LogAccumulator(object):
+    log_pos = np.NAN
+    log_neg = np.NAN
+    
+    def insert(self, log_val, indicator):
+        if indicator == 0:
+            return
+        if indicator > 0:
+            self.log_pos = logaddexp(self.log_pos, log_val)
+        else:
+            self.log_neg = logaddexp(self.log_neg, log_val)
+    
+    def get_result(self):
+        if np.isnan(self.log_pos):
+            p = 0.
+        else:
+            p = np.exp(self.log_pos)
+        if np.isnan(self.log_neg):
+            n = 0.
+        else:
+            n = np.exp(self.log_neg)
+        return p - n
+
+            
 
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, sinks, T=0.1, verbose=True):
@@ -825,14 +866,9 @@ class MSTPreconditioning(object):
         self.Ei_orig = Ei.copy()
         Emin = min(Ei.itervalues())
         for s in sinks:
-            Ei[s] = Emin - 10
+            Ei[s] = Emin - 40
         return Ei
 
-    def logaddexp(self, v1, v2):
-        if np.isnan(v1):
-            return v2
-        else:
-            return np.logaddexp(v1, v2)
         
 
     def make_K_inv(self):
@@ -849,9 +885,9 @@ class MSTPreconditioning(object):
                         continue
                     val = - leval[k] + levec[i,k] + levec[j,k] + self.spect.log_pi[j]
                     if indicator > 0:
-                        log_kinv_plus[i,j] = self.logaddexp(log_kinv_plus[i,j], val)
+                        log_kinv_plus[i,j] = logaddexp(log_kinv_plus[i,j], val)
                     else:
-                        log_kinv_minus[i,j] = self.logaddexp(log_kinv_minus[i,j], val)
+                        log_kinv_minus[i,j] = logaddexp(log_kinv_minus[i,j], val)
         
         # now merge the positive and negative components of log_kinv
         max_vals = np.where(log_kinv_plus > log_kinv_minus, log_kinv_plus, log_kinv_minus)
@@ -880,9 +916,9 @@ class MSTPreconditioning(object):
         self.logK = logK
         self.logK_indicator = indicator
         self.K = K
-            
-        
-    
+
+
+
     def make_preconditioned_submatrix(self, iremove=None):
         if iremove is None:
             assert len(self.sinks) == 1
@@ -915,9 +951,9 @@ class MSTPreconditioning(object):
                                   + self.logK[k,j]
                                   )
                         if indicator > 0:
-                            sum_logval_pos = self.logaddexp(sum_logval_pos, logval)
+                            sum_logval_pos = logaddexp(sum_logval_pos, logval)
                         else:
-                            sum_logval_neg = self.logaddexp(sum_logval_neg, logval)
+                            sum_logval_neg = logaddexp(sum_logval_neg, logval)
                 if np.isnan(sum_logval_pos):
                     vp = 0
                 else:
@@ -954,9 +990,9 @@ class MSTPreconditioning(object):
                               + self.spect.log_pi[k]
                               )
                     if indicator > 0:
-                        sum_logval_pos = self.logaddexp(sum_logval_pos, logval)
+                        sum_logval_pos = logaddexp(sum_logval_pos, logval)
                     else:
-                        sum_logval_neg = self.logaddexp(sum_logval_neg, logval)
+                        sum_logval_neg = logaddexp(sum_logval_neg, logval)
             if np.isnan(sum_logval_pos):
                 vp = 0
             else:
@@ -989,30 +1025,60 @@ class MSTPreconditioning(object):
         print "mean first passage times"
         print_matrix(times)
     
+    def test_eigenvector_orthonormality(self, n, m, iremove):
+        ind = self.spect.eigenvector_indicator
+        levecs = self.spect.log_eigenvectors
+        lpi = self.spect.log_pi
+        acc = LogAccumulator()
+        for i in xrange(self.spect.nnodes):
+            if i == iremove:
+                continue
+            indicator = ind[i,n] * ind[i,m]
+            val = levecs[i,n] + levecs[i,m] + lpi[i]
+            acc.insert(val, indicator)
+        return acc.get_result()
+
+    def test_eigenvector_equation(self, n, m, iremove):
+        ind = self.spect.eigenvector_indicator
+        levecs = self.spect.log_eigenvectors
+        lpi = self.spect.log_pi
+        acc = LogAccumulator()
+        for i in xrange(self.spect.nnodes):
+            if i == iremove:
+                continue
+            for j in xrange(self.spect.nnodes):
+                if j == iremove: 
+                    continue
+                indicator = ind[i,n] * ind[j,m] * self.logK_indicator[i,j]
+                val = levecs[i,n] + levecs[i,m] + lpi[i] + self.logK[i,j]
+                acc.insert(val, indicator)
+        return acc.get_result()
+
+    
     def test_submatrix_eigenvectors(self):
         assert len(self.sinks) == 1
         iremove = iter(self.sinks).next()
-        nnew = self.spect.nnodes - 1
-        m = self.K.copy()
-        Kii = m[iremove,iremove]
-        phi_ii = self.spect.eigenvectors[iremove,1]
-        pi_ii = self.spect.pi[iremove]
+#        nnew = self.spect.nnodes - 1
+#        m = self.K.copy()
+#        Kii = m[iremove,iremove]
+#        phi_ii = self.spect.eigenvectors[iremove,1]
+#        pi_ii = self.spect.pi[iremove]
+#        
+#        m = self.make_submatrix(m, iremove)
+#        evecs = np.zeros([self.spect.nnodes-1, self.spect.nnodes])
+#        evecs[:iremove,:] = self.spect.eigenvectors[:iremove,:]
+#        evecs[iremove:,:] = self.spect.eigenvectors[iremove+1:,:]
+#        evals = self.spect.eigenvalues.copy()
+#        pi = np.zeros(self.spect.nnodes-1)
+#        pi[:iremove] = self.spect.pi[:iremove]
+#        pi[iremove:] = self.spect.pi[iremove+1:]
+#        
+#        norm = np.sqrt(1. - phi_ii**2 * pi_ii)
+#        print "normalizing eigenvector 1 by", norm
+#        print "actual norm of eigenvector 1 is", np.sum(evecs[:,1]**2 * pi)
+#        evecs[:,1] /= norm
         
-        m = self.make_submatrix(m, iremove)
-        evecs = np.zeros([self.spect.nnodes-1, self.spect.nnodes])
-        evecs[:iremove,:] = self.spect.eigenvectors[:iremove,:]
-        evecs[iremove:,:] = self.spect.eigenvectors[iremove+1:,:]
-        evals = self.spect.eigenvalues.copy()
-        pi = np.zeros(self.spect.nnodes-1)
-        pi[:iremove] = self.spect.pi[:iremove]
-        pi[iremove:] = self.spect.pi[iremove+1:]
-        
-        norm = np.sqrt(1. - phi_ii**2 * pi_ii)
-        print "normalizing eigenvector 1 by", norm
-        print "actual norm of eigenvector 1 is", np.sum(evecs[:,1]**2 * pi)
-        evecs[:,1] /= norm
-        
-        self.spect._test_eigenvectors(evals=evals, evecs=evecs, m=m, pi=pi)
+#        self.spect._test_eigenvectors(evals=evals, evecs=evecs, m=m, pi=pi)
 #        print "norm of eigenvector 1 should be", 1. - self.spect.eigenvectors[iremove,1]**2 * self.spect.pi[iremove]
         
 #        print "full eigenvector 1 dot full eigenvector 2"
@@ -1020,33 +1086,62 @@ class MSTPreconditioning(object):
 #        print "reduced eigenvector 1 dot reduced eigenvector 2"
 #        print np.sum(evecs[:,1] * evecs[:,2] * pi)
         
-        print "\ntesting eigenvector equation with eigenvector 1"
-        print "K * evec[:,1]"
-        v = np.dot(m, evecs[:,1])
-        print_matrix(v)
-        print "eval[1] * evec[:,1]"
-        print_matrix(evals[1] * evecs[:,1])
-        eval1new = norm**-2 *(evals[1] - phi_ii**2 * pi[iremove] * (2*evals[1] - Kii))
-        print "using new estimate of eigenvalue", eval1new, "(compared with", evals[1],")"
-        print_matrix(eval1new * evecs[:,1])
-        print "is v=dot(m, evecs[:,1]) orthogonal to all other eigenvectors?"
-        print "first normalize v", np.sum(v**2 * pi)
-        v /= np.sum(v**2 * pi)
-        for k in xrange(1,self.spect.nnodes):
-            print "  ", k, ":", np.dot(v * pi, evecs[:,k])
-#        print "now with respect to pi_new: first normalize v", np.sum(v**2 * pi)
+        print "\ntesting eigenvectors are normal"
+        for n1 in xrange(1,self.spect.nnodes):
+            r = self.test_eigenvector_orthonormality(n1, n1, iremove)
+            if np.abs(r-1) > .1:
+                print "  ", n1, ":", r 
+
+        print "testing eigenvectors are orthogonal"
+        for n1 in xrange(1,self.spect.nnodes):
+            for m1 in xrange(1,self.spect.nnodes):
+                if n1 == m1:
+                    continue
+                r = self.test_eigenvector_orthonormality(n1, m1, iremove)
+                if np.abs(r) > 1e-2:
+                    print "  ", n1, m1, ":", r
+        print "testing eigenvector equation (n==m)"
+        for n1 in xrange(1,self.spect.nnodes):
+            lam = self.test_eigenvector_equation(n1, n1, iremove)
+            lam_full = self.test_eigenvector_equation(n1, n1, -1)
+            print "  ", n1, ":", lam, "expected", self.spect.eigenvalues[n1], "full", lam_full
+        print "testing eigenvector equation (n!=m)"
+        for n1 in xrange(1,self.spect.nnodes):
+            for m1 in xrange(1,self.spect.nnodes):
+                if n1 == m1:
+                    continue
+                r = self.test_eigenvector_equation(n1, m1, iremove)
+                if np.abs(r) > 1e-2:
+                    print "  ", n1, m1, ":", r
+                
+        
+#        print "\ntesting eigenvector equation with eigenvector 1"
+#        print "K * evec[:,1]"
+#        v = np.dot(m, evecs[:,1])
+#        print_matrix(v)
+#        print "eval[1] * evec[:,1]"
+#        print_matrix(evals[1] * evecs[:,1])
+#        eval1new = norm**-2 *(evals[1] - phi_ii**2 * pi[iremove] * (2*evals[1] - Kii))
+#        print "using new estimate of eigenvalue", eval1new, "(compared with", evals[1],")"
+#        print_matrix(eval1new * evecs[:,1])
+#        print "is v=dot(m, evecs[:,1]) orthogonal to all other eigenvectors?"
+#        print "first normalize v", np.sum(v**2 * pi)
 #        v /= np.sum(v**2 * pi)
 #        for k in xrange(1,self.spect.nnodes):
 #            print "  ", k, ":", np.dot(v * pi, evecs[:,k])
-        
-        
-        print "\neigenvalues of submatrix K"
-        print_matrix(np.linalg.eigvals(m))
-        print "eigenvalues of full K"
-        print_matrix(self.spect.eigenvalues)
-        print "eigenvalues of full K"
-        print_matrix(get_eigs(self.spect.Ei, self.spect.Eij, self.spect.T)[1])
-        print ""
+##        print "now with respect to pi_new: first normalize v", np.sum(v**2 * pi)
+##        v /= np.sum(v**2 * pi)
+##        for k in xrange(1,self.spect.nnodes):
+##            print "  ", k, ":", np.dot(v * pi, evecs[:,k])
+#        
+#        
+#        print "\neigenvalues of submatrix K"
+#        print_matrix(np.linalg.eigvals(m))
+#        print "eigenvalues of full K"
+#        print_matrix(self.spect.eigenvalues)
+#        print "eigenvalues of full K"
+#        print_matrix(get_eigs(self.spect.Ei, self.spect.Eij, self.spect.T)[1])
+#        print ""
     
     def test_result(self, K, Kinv, iremove):
         i = iremove
@@ -1294,7 +1389,7 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(6)
+    np.random.seed(11)
     Ei, Eij = make_random_energies_complete(n)
     print "energies", Ei
     precond = MSTPreconditioning(Ei, Eij, [1], T=T)   
@@ -1306,4 +1401,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=10, T=.5)
+    test_precond2(n=10, T=.1)
