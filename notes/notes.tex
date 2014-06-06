@@ -1,0 +1,97 @@
+\documentclass[a4paper]{article}
+
+%\usepackage[numbers]{natbib}
+\usepackage[top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+
+%\bibliographystyle{naturemagurl}
+%\bibliographystyle{plainnat}
+
+\newcommand{\evec}[2]{\phi^{(#2)}_{#1}}
+\newcommand{\subK}{K^{[i^{*}]}}
+
+\title{Notes on Minimum Spanning Tree spectral decomposition and preconditioning}
+\author{Jacob Stevenson}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{eigenvalues and vectors}
+
+The eigenvalues $\lambda_n$ and eigenvectors $\phi^{(n)}_i$ orthonormality
+
+\begin{equation}
+\sum_i \phi^{(n)}_i \pi_i \phi^{(m)}_i = \delta_{nm}
+\end{equation}
+
+They also satisfy the eigenvector equation
+\begin{equation}
+\sum_i K_{ij} \evec{i}{n}  = \lambda_n \evec{j}{n}
+\end{equation}
+
+This can be written more compactly as
+
+\begin{align}
+\Phi^{T} \Pi \Phi = I \\
+K \Phi = \Lambda \Phi
+\end{align}
+where $\Pi$ and $\Lambda$ are diagonal matrices with $\pi_i$ and $\lambda_i$ along the diagonals.
+The inverse of $\Phi$ is $\Phi^{T} \Pi$.
+We can write K from the spectral decomposition
+\begin{align}
+K_{ij} &= \sum_n \lambda_n \evec{i}{n} \evec{j}{n} \pi_j \\
+K &= \Phi \Lambda \Phi^T \Pi
+\end{align}
+The pseudo-inverse of $K$ can be written as
+\begin{equation}
+K^{+} = \Phi \Lambda^{-1} \Phi^T \Pi
+\end{equation}
+This is not the real inverse because the first eigenvector is zero.  But it does satisfy 
+\begin{align}
+K K^{+} K &= K \\
+K^{+} K K^{+} &= K^{+}
+\end{align}
+and maybe (but I haven't checked it)
+\begin{align}
+(K K^{+})^T &= K K^{+} \\
+(K^{+} K)^T &= K^{+} K
+\end{align}
+
+\section{submatrix spectrum}
+We ultimately want to construct a preconditioner for a submatrix of $K$ denoted $\subK{}$ which is $K$
+with row and column $i^{*}$ deleted.  This matrix is used to calculate mean first passage times from all the nodes
+into $i^{*}$ via
+\begin{equation}
+\subK{} \tau_{mfpt} = (1, \dots, 1)^T
+\end{equation}
+The preconditioner will be an approximation to the inverse of $\subK{}$ which we will hopefully construct from 
+the spectrum of $K$.
+
+We will proceed by altering the original problem so that the energy of the node to be removed $E_{i^{*}}$
+is much less than all other energies in the problem.  The spectrum of $K$ is then computed.
+
+We will try to show that the eigenvectors of $\subK{}$ are the same as the eigenvectors of $K$ with 
+the $i^{*}$th element removed. The eigenvector corresponding to the zero eigenvalue is discarded.
+
+We are taking the limit $E_{i^{*}} \to -\infty$, so we will define a small parameter $p = \exp{\beta E_{i^{*}}}$.
+Numerically it appears that
+\begin{align}
+\lambda_{i} &\sim 1 \\
+\evec{i^{*}}{n} &\sim p \\
+\evec{i\ne i^{*}}{n} &\sim 1 \text{  (except, possibly, for n=1)} \\
+\pi_{i^{*}} &\sim 1 \\
+\pi_{i\ne i^{*}} &\sim p
+\end{align}
+
+First show that they are orthonormal.
+\begin{align}
+\sum_{i\ne i^{*}} \evec{i}{n} \pi_i \evec{j}{m} &= \delta_{nm} - \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} \\
+& \sim \delta_{nm} - p^2
+\end{align}
+
+
+\end{document}
