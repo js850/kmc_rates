@@ -37,7 +37,7 @@ This can be written more compactly as
 
 \begin{align}
 \Phi^{T} \Pi \Phi = I \\
-K \Phi = \Lambda \Phi
+K \Phi = \Phi \Lambda
 \end{align}
 where $\Pi$ and $\Lambda$ are diagonal matrices with $\pi_i$ and $\lambda_i$ along the diagonals.
 The inverse of $\Phi$ is $\Phi^{T} \Pi$.
@@ -84,14 +84,33 @@ Numerically it appears that
 \evec{i^{*}}{n} &\sim p \\
 \evec{i\ne i^{*}}{n} &\sim 1 \text{  (except, possibly, for n=1)} \\
 \pi_{i^{*}} &\sim 1 \\
-\pi_{i\ne i^{*}} &\sim p
+\pi_{i\ne i^{*}} &\sim p \\
+K_{i^{*} j} &\sim p \\
+K_{i\ne i^{*}, j} &\sim 1
 \end{align}
 
 First show that they are orthonormal.
 \begin{align}
-\sum_{i\ne i^{*}} \evec{i}{n} \pi_i \evec{j}{m} &= \delta_{nm} - \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} \\
+\sum_{i\ne i^{*}} \evec{i}{n} \pi_i \evec{i}{m} &= \delta_{nm} - \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} \\
 & \sim \delta_{nm} - p^2
 \end{align}
+Thus they are orthonormal for small enough p.  We now show that they satisfy the eigenvector equation
+\begin{align}
+\sum_{j\ne i^{*}} K_{ij} \evec{j}{n}  &=
+\lambda_n \evec{i}{n} - K_{i i^{*}} \evec{i^{*}}{n} \\
+& \sim \lambda_n \evec{i}{n} - p
+\end{align}
+Similarly, it can be shown that
+\begin{align}
+\sum_{i\ne i^{*}} 
+\sum_{j\ne i^{*}} 
+\evec{i}{m} \pi_{i}
+K_{ij} \evec{j}{n} 
+&= \lambda_n \delta_{nm} + \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} (K_{i^{*} i^{*}} - \lambda_n - \lambda_m)
+\\
+& \sim \lambda_n \evec{i}{n} + p^2 (p - 1)
+\end{align}
+
 
 
 \end{document}
