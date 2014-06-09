@@ -81,8 +81,8 @@ We are taking the limit $E_{i^{*}} \to -\infty$, so we will define a small param
 Numerically it appears that
 \begin{align}
 \lambda_{i} &\sim 1 \\
-\evec{i^{*}}{n} &\sim p \\
-\evec{i\ne i^{*}}{n} &\sim 1 \text{  (except, possibly, for n=1)} \\
+\evec{i^{*}}{n} &\sim p^{1/2} \\
+\evec{i\ne i^{*}}{n} &\sim p^{-1/2} \text{  (except, possibly, for n=1)} \\
 \pi_{i^{*}} &\sim 1 \\
 \pi_{i\ne i^{*}} &\sim p \\
 K_{i^{*} j} &\sim p \\
@@ -92,13 +92,13 @@ K_{i\ne i^{*}, j} &\sim 1
 First show that they are orthonormal.
 \begin{align}
 \sum_{i\ne i^{*}} \evec{i}{n} \pi_i \evec{i}{m} &= \delta_{nm} - \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} \\
-& \sim \delta_{nm} - p^2
+& \sim \delta_{nm} - p
 \end{align}
 Thus they are orthonormal for small enough p.  We now show that they satisfy the eigenvector equation
 \begin{align}
 \sum_{j\ne i^{*}} K_{ij} \evec{j}{n}  &=
 \lambda_n \evec{i}{n} - K_{i i^{*}} \evec{i^{*}}{n} \\
-& \sim \lambda_n \evec{i}{n} - p
+& \sim \lambda_n \evec{i}{n} - p^{1/2}
 \end{align}
 Similarly, it can be shown that
 \begin{align}
@@ -108,7 +108,7 @@ Similarly, it can be shown that
 K_{ij} \evec{j}{n} 
 &= \lambda_n \delta_{nm} + \evec{i^{*}}{n} \evec{i^{*}}{m} \pi_{i^{*}} (K_{i^{*} i^{*}} - \lambda_n - \lambda_m)
 \\
-& \sim \lambda_n \evec{i}{n} + p^2 (p - 1)
+& \sim \lambda_n \evec{i}{n} + p (p - 1)
 \end{align}
 
 

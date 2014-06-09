@@ -690,7 +690,7 @@ class MSTSpectralDecomposition(object):
         self.eigenvectors[is1, k] =  np.exp(logC1)
         self.eigenvectors[is2, k] = -np.exp(logC2)
         
-        self.log_eigenvectors[:,k] = 1.
+        self.log_eigenvectors[:,k] = 0.
         self.log_eigenvectors[is1, k] = logC1
         self.log_eigenvectors[is2, k] = logC2
         
@@ -782,6 +782,7 @@ class MSTSpectralDecomposition(object):
             # save the eigenvalue
             self.log_eigenvalues[k] = -(Epq - self.Ei[s]) / self.T
             self.eigenvalues[k] = - np.exp(self.log_eigenvalues[k])
+            print "eigenvalue", self.eigenvalues[k], Epq, self.Ei[s] 
             
             # remove the cutting edge
             mst.remove_edge(p, q)
@@ -866,7 +867,7 @@ class MSTPreconditioning(object):
         self.Ei_orig = Ei.copy()
         Emin = min(Ei.itervalues())
         for s in sinks:
-            Ei[s] = Emin - 40
+            Ei[s] = Emin - 20
         return Ei
 
         
@@ -935,35 +936,20 @@ class MSTPreconditioning(object):
             i = ilist[inew]
             for jnew in xrange(nnew): # index j
                 j = ilist[jnew]
-                sum_logval_pos = np.nan
-                sum_logval_neg = np.nan
+                acc = LogAccumulator()
                 for n in xrange(1,self.spect.nnodes): # eigenvalue number
                     for k in xrange(self.spect.nnodes): # matrix multiplication index
                         if k == iremove:
                             continue
                         indicator = -1 * ind[i,n] * ind[k,n] * self.logK_indicator[k,j]
-                        if indicator == 0:
-                            continue
-                        logval = (-levals[n]
+                        logval = (- levals[n]
                                   + levecs[i,n]
                                   + levecs[k,n]
                                   + self.spect.log_pi[k]
                                   + self.logK[k,j]
                                   )
-                        if indicator > 0:
-                            sum_logval_pos = logaddexp(sum_logval_pos, logval)
-                        else:
-                            sum_logval_neg = logaddexp(sum_logval_neg, logval)
-                if np.isnan(sum_logval_pos):
-                    vp = 0
-                else:
-                    vp = np.exp(sum_logval_pos)
-                if np.isnan(sum_logval_neg):
-                    vn = 0
-                else:
-                    vn = np.exp(sum_logval_neg)
-#                print sum_logval_pos, sum_logval_neg, vp, vn
-                M[inew,jnew] = vp - vn
+                        acc.insert(logval, indicator)
+                M[inew,jnew] = acc.get_result()
 #        print M
         return M
 
@@ -1050,7 +1036,7 @@ class MSTPreconditioning(object):
                 if j == iremove: 
                     continue
                 indicator = ind[i,n] * ind[j,m] * self.logK_indicator[i,j]
-                val = levecs[i,n] + levecs[i,m] + lpi[i] + self.logK[i,j]
+                val = levecs[i,n] + lpi[i] + self.logK[i,j] + levecs[j,m]
                 acc.insert(val, indicator)
         return acc.get_result()
 
