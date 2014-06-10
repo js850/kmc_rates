@@ -591,6 +591,7 @@ class _EigenvectorRepresentation(object):
         evec = np.zeros(self.nnodes)
         evec[self.group1] = np.exp(self.logC1)
         evec[self.group2] = -np.exp(self.logC2)
+        return evec
     
     def get_log_terms(self, index):
         ind = self.indicator[index]
@@ -739,6 +740,7 @@ class MSTSpectralDecomposition(object):
 #         self.eigenvectors[is2, k] = -np.exp(logC2)
         
         self.log_eigenvectors[:,k], self.eigenvector_indicator[:,k] = evec_repr.make_log_eigenvector()
+        self.eigenvector_full_representations[k] = (evec_repr)
 #         self.log_eigenvectors[is1, k] = logC1
 #         self.log_eigenvectors[is2, k] = logC2
         
@@ -794,7 +796,8 @@ class MSTSpectralDecomposition(object):
         self.eigenvectors[:,0] = 1.
         self.eigenvector_indicator = np.zeros(self.eigenvectors.shape)
         self.log_eigenvectors = np.zeros(self.eigenvectors.shape)
-        
+        self.eigenvector_full_representations = [None] * self.nnodes
+
         k = 0
         
         # the first sink is the node with the lowest energy
@@ -1447,4 +1450,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=10, T=.1)
+    test_precond2(n=9, T=.1)
