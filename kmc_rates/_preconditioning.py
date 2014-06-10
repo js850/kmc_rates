@@ -558,6 +558,51 @@ class MSTSpectralDecompositionOld(object):
         print "eigenvectors (normalized to sum(v*v*pi) = 1)"
         print_matrix(self.eigenvectors)
 
+class _EigenvectorRepresentation(object):
+    def __init__(self, group1, group2, log_pi):
+        self.group1 = np.array(group1)
+        self.group1.sort()
+        self.group2 = np.array(group2)
+        self.group2.sort()
+        self.nnodes = len(log_pi)
+
+        self.log_pi = log_pi
+        
+        isum_pi1 = - scipy.misc.logsumexp(self.log_pi[self.group1])
+        isum_pi2 = - scipy.misc.logsumexp(self.log_pi[self.group2])
+        log_norm = np.logaddexp(isum_pi1, isum_pi2) / 2
+        self.logC1 = isum_pi1 - log_norm
+        self.logC2 = isum_pi2 - log_norm
+        
+        self.log_terms1 = self.log_pi[self.group1] - log_norm
+        self.log_terms2 = self.log_pi[self.group2] - log_norm
+        self.indicator = np.zeros(self.nnodes)
+        self.indicator[self.group1] = 1
+        self.indicator[self.group2] = -1
+
+    
+    def make_log_eigenvector(self):
+        log_evec = np.zeros(self.nnodes)
+        log_evec[self.group1] = self.logC1
+        log_evec[self.group2] = self.logC2
+        return log_evec, self.indicator
+    
+    def make_eigenvector(self):
+        evec = np.zeros(self.nnodes)
+        evec[self.group1] = np.exp(self.logC1)
+        evec[self.group2] = -np.exp(self.logC2)
+    
+    def get_log_terms(self, index):
+        ind = self.indicator[index]
+        if index == 0:
+            return np.array([0]), 0
+        elif index > 0:
+            return self.log_terms1, ind
+        else:
+            return self.log_terms2, ind
+            
+        
+
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
     def __init__(self, Ei, Eij, T=.1, verbose=True):
@@ -677,26 +722,29 @@ class MSTSpectralDecomposition(object):
             S1, S2 = S2, S1
         assert s in S1 and s not in S2
         
-        # compute the inverse sum of pi for all nodes in S1 and S2
-        isum_pi1 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S1])
-        isum_pi2 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S2])
-        norm = scipy.misc.logsumexp([isum_pi1, isum_pi2])
-        logC1 = isum_pi1 - norm / 2.
-        logC2 = isum_pi2 - norm / 2.
         is1 = np.array([self.node2index[node] for node in S1])
         is2 = np.array([self.node2index[node] for node in S2])
+        evec_repr = _EigenvectorRepresentation(is1, is2, self.log_pi)
         
-        self.eigenvectors[:,k] = 0.
-        self.eigenvectors[is1, k] =  np.exp(logC1)
-        self.eigenvectors[is2, k] = -np.exp(logC2)
         
-        self.log_eigenvectors[:,k] = 0.
-        self.log_eigenvectors[is1, k] = logC1
-        self.log_eigenvectors[is2, k] = logC2
+        # compute the inverse sum of pi for all nodes in S1 and S2
+#         isum_pi1 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S1])
+#         isum_pi2 = - scipy.misc.logsumexp([self.log_pi_dict[node] for node in S2])
+#         norm = scipy.misc.logsumexp([isum_pi1, isum_pi2])
+#         logC1 = isum_pi1 - norm / 2.
+#         logC2 = isum_pi2 - norm / 2.
         
-        self.eigenvector_indicator[:,k] = 0
-        self.eigenvector_indicator[is1,k] =  1
-        self.eigenvector_indicator[is2,k] = -1
+        self.eigenvectors[:,k] = evec_repr.make_eigenvector()
+#         self.eigenvectors[is1, k] =  np.exp(logC1)
+#         self.eigenvectors[is2, k] = -np.exp(logC2)
+        
+        self.log_eigenvectors[:,k], self.eigenvector_indicator[:,k] = evec_repr.make_log_eigenvector()
+#         self.log_eigenvectors[is1, k] = logC1
+#         self.log_eigenvectors[is2, k] = logC2
+        
+#         self.eigenvector_indicator[:,k] = 0
+#         self.eigenvector_indicator[is1,k] =  1
+#         self.eigenvector_indicator[is2,k] = -1
 
     def _test_eigenvectors(self, evals=None, evecs=None, m=None, pi=None):
         if evals is None:
@@ -1384,6 +1432,7 @@ def test_precond2(n=8, T=.01):
     seed = 5699024 #n=6
     seed = 1492541 #n=5
     seed = 8833179 #n=4
+    seed = 10
 #     seed = np.random.randint(10000000)
     print "seed", seed
     np.random.seed(seed)
@@ -1398,4 +1447,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=4, T=.1)
+    test_precond2(n=10, T=.1)
