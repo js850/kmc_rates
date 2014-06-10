@@ -829,28 +829,30 @@ def logaddexp(v1, v2):
     else:
         return np.logaddexp(v1, v2)
 
-class LogAccumulator(object):
-    log_pos = np.NAN
-    log_neg = np.NAN
-    
-    def insert(self, log_val, indicator):
-        if indicator == 0:
-            return
-        if indicator > 0:
-            self.log_pos = logaddexp(self.log_pos, log_val)
-        else:
-            self.log_neg = logaddexp(self.log_neg, log_val)
-    
-    def get_result(self):
-        if np.isnan(self.log_pos):
-            p = 0.
-        else:
-            p = np.exp(self.log_pos)
-        if np.isnan(self.log_neg):
-            n = 0.
-        else:
-            n = np.exp(self.log_neg)
-        return p - n
+# class LogAccumulator(object):
+#     log_pos = np.NAN
+#     log_neg = np.NAN
+#     
+#     def insert(self, log_val, indicator):
+#         if indicator == 0:
+#             return
+#         if indicator > 0:
+#             self.log_pos = logaddexp(self.log_pos, log_val)
+#         else:
+#             self.log_neg = logaddexp(self.log_neg, log_val)
+#     
+#     def get_result(self):
+#         if np.isnan(self.log_pos):
+#             p = 0.
+#         else:
+#             p = np.exp(self.log_pos)
+#         if np.isnan(self.log_neg):
+#             n = 0.
+#         else:
+#             n = np.exp(self.log_neg)
+#         return p - n
+from _precision_summation import MSum
+LogAccumulator = MSum
 
             
 
@@ -989,7 +991,7 @@ class MSTPreconditioning(object):
                 vn = np.exp(sum_logval_neg)
 #                print sum_logval_pos, sum_logval_neg, vp, vn
             right[inew] = vp - vn
-
+        return right
                     
         
     
@@ -1004,7 +1006,7 @@ class MSTPreconditioning(object):
         M = self.make_preconditioned_submatrix()
         b = self.make_mfpt_right_vector()
         
-        print "conditioned matrix"
+        print "\nconditioned matrix"
         print_matrix(M)
         print "condition number of conditioned matrix", np.linalg.cond(M)
         times = np.linalg.solve(M, b)
@@ -1029,6 +1031,8 @@ class MSTPreconditioning(object):
         levecs = self.spect.log_eigenvectors
         lpi = self.spect.log_pi
         acc = LogAccumulator()
+        from _precision_summation import MSum
+        acc = MSum()
         for i in xrange(self.spect.nnodes):
             if i == iremove:
                 continue
@@ -1038,6 +1042,8 @@ class MSTPreconditioning(object):
                 indicator = ind[i,n] * ind[j,m] * self.logK_indicator[i,j]
                 val = levecs[i,n] + lpi[i] + self.logK[i,j] + levecs[j,m]
                 acc.insert(val, indicator)
+                if n == m == 1:
+                    pass
         return acc.get_result()
 
     
@@ -1099,7 +1105,7 @@ class MSTPreconditioning(object):
                 r = self.test_eigenvector_equation(n1, m1, iremove)
                 if np.abs(r) > 1e-2:
                     print "  ", n1, m1, ":", r
-                
+        pass   
         
 #        print "\ntesting eigenvector equation with eigenvector 1"
 #        print "K * evec[:,1]"
@@ -1278,7 +1284,7 @@ class MSTPreconditioning(object):
         
         self.test_submatrix_eigenvectors()
 
-        viewer = ViewMSTSpectralDecomp(self.spect)
+#         viewer = ViewMSTSpectralDecomp(self.spect)
         
  
 #
@@ -1375,7 +1381,12 @@ def test_precond1():
 
 
 def test_precond2(n=8, T=.01):
-    np.random.seed(11)
+    seed = 5699024 #n=6
+    seed = 1492541 #n=5
+    seed = 8833179 #n=4
+#     seed = np.random.randint(10000000)
+    print "seed", seed
+    np.random.seed(seed)
     Ei, Eij = make_random_energies_complete(n)
     print "energies", Ei
     precond = MSTPreconditioning(Ei, Eij, [1], T=T)   
@@ -1387,4 +1398,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
 
 #     test1()
-    test_precond2(n=10, T=.1)
+    test_precond2(n=4, T=.1)
