@@ -605,6 +605,8 @@ class _EigenvectorRepresentation(object):
             return self.log_terms2, ind
     
     def make_mp_eigenvector(self):
+        print "pi_S1", float(sum(self.mppi[i] for i in self.group1))
+        print "pi_S2", float(sum(self.mppi[i] for i in self.group2))
         isum_pi1 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group1))
         isum_pi2 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group2))
         norm = mpmath.sqrt(isum_pi1 + isum_pi2)
@@ -765,7 +767,7 @@ class MSTSpectralDecomposition(object):
         
         self.log_eigenvectors[:,k], self.eigenvector_indicator[:,k] = evec_repr.make_log_eigenvector()
         self.eigenvector_full_representations[k] = (evec_repr)
-        self.eigevectors_mp[:,k] = evec_repr.make_mp_eigenvector()
+        self.eigenvectors_mp[:,k] = evec_repr.make_mp_eigenvector()
 #         self.log_eigenvectors[is1, k] = logC1
 #         self.log_eigenvectors[is2, k] = logC2
         
@@ -816,13 +818,14 @@ class MSTSpectralDecomposition(object):
         escape_function = dict() # escape function
 
         self.log_eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
-        self.eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
+        self.eigenvalues = np.zeros(self.nnodes)
         self.eigenvectors = np.zeros([self.nnodes, self.nnodes])
         self.eigenvectors[:,0] = 1.
         self.eigenvector_indicator = np.zeros(self.eigenvectors.shape)
         self.log_eigenvectors = np.zeros(self.eigenvectors.shape)
         self.eigenvector_full_representations = [None] * self.nnodes
-        self.eigevectors_mp = mpmath.matrix(self.eigenvectors)
+        self.eigenvectors_mp = mpmath.matrix(self.eigenvectors)
+        self.eigenvalues_mp = mpmath.matrix(np.zeros(self.nnodes))
 
         k = 0
         
@@ -860,6 +863,7 @@ class MSTSpectralDecomposition(object):
             self.log_eigenvalues[k] = -(Epq - self.Ei[s]) / self.T
             self.eigenvalues[k] = - np.exp(self.log_eigenvalues[k])
             print "eigenvalue", self.eigenvalues[k], Epq, self.Ei[s] 
+            self.eigenvalues_mp[k] = mpmath.exp(-(mpmath.mpf(Epq) - self.Ei[s]) / self.T)
             
             # remove the cutting edge
             mst.remove_edge(p, q)
@@ -889,7 +893,7 @@ class MSTSpectralDecomposition(object):
             print_matrix(self.eigenvectors)
             print ""
             print "eigenvectors (mpmath)"
-            print self.eigevectors_mp
+            print self.eigenvectors_mp
 
 def subtract_exp(pos, neg):
     if np.isnan(pos):
@@ -938,10 +942,11 @@ LogAccumulator = MSum
 class MSTPreconditioning(object):
     def __init__(self, Ei, Eij, sinks, T=0.1, verbose=True):
         self.verbose = verbose
-        self.sinks = set(sinks)
+        self.sinks_nodes = set(sinks)
         assert len(sinks) == 1
         Ei = self.prepare_Ei(Ei, sinks)
         self.spect = MSTSpectralDecomposition(Ei, Eij, T=T)
+        self.sinks_indices = set([self.spect.node2index[i] for i in self.sinks_nodes])
         self.make_log_rate_matrix()
     
     def prepare_Ei(self, Ei, sinks):
@@ -999,12 +1004,51 @@ class MSTPreconditioning(object):
         self.logK_indicator = indicator
         self.K = K
 
+    def make_rate_matrix_mp(self):
+        K = np.zeros([self.spect.nnodes, self.spect.nnodes])
+        for (i,j), Eij in self.spect.Eij.iteritems():
+            K[i,j] = mpmath.exp(-(mpmath.mpf(Eij) - self.spect.Ei[i]) / self.spect.T)
+            K[j,i] = mpmath.exp(-(mpmath.mpf(Eij) - self.spect.Ei[j]) / self.spect.T)
+        for i in xrange(self.spect.nnodes):
+            K[i,i] = - sum(K[i,:])
+        return K
 
 
-    def make_preconditioned_submatrix(self, iremove=None):
+    def make_preconditioned_submatrix_mp(self, iremove=None):
+        print "removing index", iremove
+        nnew = self.spect.nnodes - 1
+        ilist = range(iremove) + range(iremove+1,self.spect.nnodes)
+        K = self.make_rate_matrix_mp()
+        
+        pi = self.spect.mppi
+        evecs = self.spect.eigenvectors_mp
+        evals = self.spect.eigenvalues_mp
+        
+        M = mpmath.matrix(nnew,nnew)
+        
+        for inew in xrange(nnew): # index i
+            i = ilist[inew]
+            for jnew in xrange(nnew): # index j
+                j = ilist[jnew]
+                for n in xrange(1,self.spect.nnodes): # eigenvalue number
+                    for k in xrange(self.spect.nnodes): # matrix multiplication index
+                        if k == iremove:
+                            continue
+                        M[inew,jnew] +=(
+                                        evecs[i,n]
+                                        * K[k,j]
+                                        * evecs[k,n]
+                                        * pi[k]
+                                        / evals[n] 
+                                        )
+        return M
+
+    def make_preconditioned_submatrix(self, iremove=None, mp=True):
         if iremove is None:
-            assert len(self.sinks) == 1
-            iremove = iter(self.sinks).next()
+            assert len(self.sinks_indices) == 1
+            iremove = iter(self.sinks_indices).next()
+        if mp:
+            return np.array(self.make_preconditioned_submatrix_mp(iremove).tolist(), dtype=float)
         ilist = range(iremove) + range(iremove+1,self.spect.nnodes)
         assert len(ilist) == self.spect.nnodes - 1
         nnew = self.spect.nnodes - 1
@@ -1036,7 +1080,7 @@ class MSTPreconditioning(object):
 
     def make_mfpt_right_vector(self):
         """the pseudo inverse of K * ones()"""
-        ilist = sorted(set(xrange(self.spect.nnodes)) - self.sinks)
+        ilist = sorted(set(xrange(self.spect.nnodes)) - self.sinks_indices)
         nnew = len(ilist)
         right = np.zeros(nnew)
         ind = self.spect.eigenvector_indicator
@@ -1084,8 +1128,12 @@ class MSTPreconditioning(object):
     def compute_mfp_times(self):
         M = self.make_preconditioned_submatrix()
         b = self.make_mfpt_right_vector()
+        print "m shape", M.shape, b.shape
         
-        print "\nconditioned matrix"
+        Mfloat = self.make_preconditioned_submatrix(mp=False)
+        print "\nconditioned matrix (floats)", np.linalg.cond(Mfloat)
+        print_matrix(Mfloat)
+        print "\nconditioned matrix (mpmath)"
         print_matrix(M)
         print "condition number of conditioned matrix", np.linalg.cond(M)
         times = np.linalg.solve(M, b)
@@ -1127,8 +1175,8 @@ class MSTPreconditioning(object):
 
     
     def test_submatrix_eigenvectors(self):
-        assert len(self.sinks) == 1
-        iremove = iter(self.sinks).next()
+        assert len(self.sinks_indices) == 1
+        iremove = iter(self.sinks_indices).next()
 #        nnew = self.spect.nnodes - 1
 #        m = self.K.copy()
 #        Kii = m[iremove,iremove]
@@ -1476,6 +1524,6 @@ def test_precond2(n=8, T=.01):
 
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
-    mpmath.mp.dps = 20
+    mpmath.mp.dps = 200
 #     test1()
     test_precond2(n=9, T=.1)
