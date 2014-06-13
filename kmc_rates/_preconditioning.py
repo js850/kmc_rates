@@ -10,6 +10,7 @@ import scipy
 import scipy.misc
 import networkx as nx
 import pylab as plt
+import mpmath
 
 def print_matrix(m, fmt="%9.3g"):
     print np.array_str(m, precision=3, max_line_width=300)
@@ -559,7 +560,7 @@ class MSTSpectralDecompositionOld(object):
         print_matrix(self.eigenvectors)
 
 class _EigenvectorRepresentation(object):
-    def __init__(self, group1, group2, log_pi):
+    def __init__(self, group1, group2, log_pi, mppi):
         self.group1 = np.array(group1)
         self.group1.sort()
         self.group2 = np.array(group2)
@@ -567,6 +568,7 @@ class _EigenvectorRepresentation(object):
         self.nnodes = len(log_pi)
 
         self.log_pi = log_pi
+        self.mppi = mppi
         
         isum_pi1 = - scipy.misc.logsumexp(self.log_pi[self.group1])
         isum_pi2 = - scipy.misc.logsumexp(self.log_pi[self.group2])
@@ -601,6 +603,20 @@ class _EigenvectorRepresentation(object):
             return self.log_terms1, ind
         else:
             return self.log_terms2, ind
+    
+    def make_mp_eigenvector(self):
+        isum_pi1 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group1))
+        isum_pi2 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group2))
+        norm = mpmath.sqrt(isum_pi1 + isum_pi2)
+        C1 = isum_pi1 / norm
+        C2 = isum_pi2 / norm
+        
+        v = mpmath.matrix([0.]*self.nnodes)
+        for i in self.group1:
+            v[i] = C1
+        for i in self.group2:
+            v[i] = -C2
+        return v
             
         
 
@@ -624,7 +640,15 @@ class MSTSpectralDecomposition(object):
         self.node_list = nodes
         self.node2index = node2index
 
+    def _make_equilibrium_occupation_probabilities_mp(self):
+        self.mppi = mpmath.matrix([mpmath.exp(mpmath.mpf(-self.Ei[node]) / self.T) 
+                         for node in self.node_list])
+        self.mppi /= sum(self.mppi)
+        print "mp pi"#, mp.dps, mpmath
+        print self.mppi
+        
     def _make_equilibrium_occupation_probabilities(self):
+        self._make_equilibrium_occupation_probabilities_mp()
         log_pi = np.array([-self.Ei[node] / self.T for node in self.node_list])
         # normalize log_pi
         log_sum_pi = scipy.misc.logsumexp(log_pi)
@@ -725,7 +749,7 @@ class MSTSpectralDecomposition(object):
         
         is1 = np.array([self.node2index[node] for node in S1])
         is2 = np.array([self.node2index[node] for node in S2])
-        evec_repr = _EigenvectorRepresentation(is1, is2, self.log_pi)
+        evec_repr = _EigenvectorRepresentation(is1, is2, self.log_pi, self.mppi)
         
         
         # compute the inverse sum of pi for all nodes in S1 and S2
@@ -741,6 +765,7 @@ class MSTSpectralDecomposition(object):
         
         self.log_eigenvectors[:,k], self.eigenvector_indicator[:,k] = evec_repr.make_log_eigenvector()
         self.eigenvector_full_representations[k] = (evec_repr)
+        self.eigevectors_mp[:,k] = evec_repr.make_mp_eigenvector()
 #         self.log_eigenvectors[is1, k] = logC1
 #         self.log_eigenvectors[is2, k] = logC2
         
@@ -797,6 +822,7 @@ class MSTSpectralDecomposition(object):
         self.eigenvector_indicator = np.zeros(self.eigenvectors.shape)
         self.log_eigenvectors = np.zeros(self.eigenvectors.shape)
         self.eigenvector_full_representations = [None] * self.nnodes
+        self.eigevectors_mp = mpmath.matrix(self.eigenvectors)
 
         k = 0
         
@@ -862,6 +888,8 @@ class MSTSpectralDecomposition(object):
             print "eigenvectors (normalized to sum(v*v*pi) = 1)"
             print_matrix(self.eigenvectors)
             print ""
+            print "eigenvectors (mpmath)"
+            print self.eigevectors_mp
 
 def subtract_exp(pos, neg):
     if np.isnan(pos):
@@ -1448,6 +1476,6 @@ def test_precond2(n=8, T=.01):
 
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
-
+    mpmath.mp.dps = 20
 #     test1()
     test_precond2(n=9, T=.1)
