@@ -111,6 +111,21 @@ K_{ij} \evec{j}{n}
 & \sim \lambda_n \evec{i}{n} + p (p - 1)
 \end{align}
 
+\subsection{conditioned submatrix}
+if we remove index $i^{*}$ then the conditioned submatrix is computed as
+\begin{equation}
+M_{ij} = \sum_{K} K^{+[i^{*}]}_{ik} \subK{}_{kj}  = 
+\sum_{k \ne i^{*}} \sum_n \lambda_n \evec{i}{n} \evec{k}{n} \pi_k K_{kj}
+\end{equation}
+Without normalization, $\phi^{(n)}$ can be written as
+\begin{equation}
+\evec{i}{n} = 
+\begin{cases}
+ \sum_{j \in S^{(n)}_2} \pi_{j} & i \in S^{(n)}_1 \\
+-\sum_{j \in S^{(n)}_1} \pi_{j} & i \in S^{(n)}_2 \\
+0 & \text{else}
+\end{cases}
+\end{equation}
 
 
 \end{document}
