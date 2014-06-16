@@ -1,6 +1,7 @@
 \documentclass[a4paper]{article}
 
 %\usepackage[numbers]{natbib}
+\usepackage[usenames]{color} %for colored text
 \usepackage[top=2.5cm,bottom=2.5cm]{geometry}
 \usepackage{amsmath}
 \usepackage{graphicx}
@@ -114,18 +115,34 @@ K_{ij} \evec{j}{n}
 \subsection{conditioned submatrix}
 if we remove index $i^{*}$ then the conditioned submatrix is computed as
 \begin{equation}
-M_{ij} = \sum_{K} K^{+[i^{*}]}_{ik} \subK{}_{kj}  = 
-\sum_{k \ne i^{*}} \sum_n \lambda_n \evec{i}{n} \evec{k}{n} \pi_k K_{kj}
+M_{ij} = \sum_{k} K^{+[i^{*}]}_{ik} \subK{}_{kj}  = 
+\sum_{k \ne i^{*}} \sum_n \lambda_n^{-1} \evec{i}{n} \evec{k}{n} \pi_k K_{kj}
 \end{equation}
-Without normalization, $\phi^{(n)}$ can be written as
+$\phi^{(n)}$ can be written in a convenient way as
 \begin{equation}
-\evec{i}{n} = 
+\evec{i}{n} = A_n
 \begin{cases}
  \sum_{j \in S^{(n)}_2} \pi_{j} & i \in S^{(n)}_1 \\
 -\sum_{j \in S^{(n)}_1} \pi_{j} & i \in S^{(n)}_2 \\
 0 & \text{else}
 \end{cases}
 \end{equation}
+where $A_n$ is a normalization factor.  Plugging in $\evec{k}{n}$ we get ({\color{red} ignoring $i^{*}$})
+\begin{equation}
+M_{ij} = \sum_{k} K^{+}_{ik} K_{kj}  = 
+\sum_n \lambda_n^{-1} \evec{i}{n} \left\{ 
+  \sum_{k \in S_1^{(n)}} 
+  \sum_{l \in S_2^{(n)}} 
+  \pi_l
+  \pi_k K_{kj}
+  -
+  \sum_{k \in S_2^{(n)}} 
+  \sum_{l \in S_1^{(n)}} 
+  \pi_l
+  \pi_k K_{kj}
+\right\}
+\end{equation}
+
 
 
 \end{document}
