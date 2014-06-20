@@ -142,7 +142,156 @@ M_{ij} = \sum_{k} K^{+}_{ik} K_{kj}  =
   \pi_k K_{kj}
 \right\}
 \end{equation}
-
-
+Using the following definition for the rate matrix 
+\begin{equation}
+K_{ij} = P^{-1}
+\begin{cases}
+ \pi_{ij} / \pi_i & i \ne j \\
+-\sum_{k \ne j} \pi_{jk} / \pi_j & i = j
+\end{cases}
+\end{equation}
+where $\pi_{ij} = \exp (-\beta E_{ij})$, and P is the normalization for the $\Pi$, e.g. ($\pi_i = P \exp (-\beta E_i)$).
+The equation for $M_{ij}$ can be re-written
+\begin{align}
+M_{ij} = 
+\sum_n \lambda_n^{-1} \evec{i}{n} 
+& \left\{ 
+  \sum_{l \in S_2^{(n)}}   \pi_l
+  \left[
+  \sum_{\substack{k \in S_1^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   + \delta_{j \in S_1^{(n)}}
+   \pi_j K_{jj}
+  \right]
+  \right. \\ & \left. 
+  {} - \sum_{l \in S_1^{(n)}} \pi_l
+  \left[
+  \sum_{\substack{k \in S_2^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   + \delta_{j \in S_2^{(n)}}
+   \pi_j K_{jj}
+  \right]
+\right\}
+\end{align}
+Which resolves to
+\begin{align}
+M_{ij} = 
+\sum_n \lambda_n^{-1} \evec{i}{n} 
+& \left\{ 
+  \sum_{l \in S_2^{(n)}}   \pi_l
+  \left[
+  \sum_{\substack{k \in S_1^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   - \delta_{j \in S_1^{(n)}}
+   \sum_{p \ne j} \pi_{jp}
+  \right]
+  \right. \\ & \left. 
+  {} - \sum_{l \in S_1^{(n)}} \pi_l
+  \left[
+  \sum_{\substack{k \in S_2^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   - \delta_{j \in S_2^{(n)}}
+   \sum_{p \ne j} \pi_{jp}
+  \right]
+\right\}
+\end{align}
+Breaking it up into the different cases, we find
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+\sum_{l \in S_2^{(n)}} \pi_l
+  \left[
+  \sum_{\substack{k \in S_1^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   - \sum_{p \ne j} \pi_{jp} 
+  \right]
+  - \sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+-  \sum_{l \in S_1^{(n)}} \pi_l 
+\left[
+  \sum_{\substack{k \in S_2^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+   - \sum_{p \ne j} \pi_{jp} 
+  \right]
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+Since $\pi_{ij} == \pi_{ji}$ we can simplify the terms in the bracket above
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+\sum_{l \in S_2^{(n)}} \pi_l
+  \left[-
+  \sum_{\substack{k \notin S_1^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+  \right]
+  - \sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+-  \sum_{l \in S_1^{(n)}} \pi_l 
+\left[-
+  \sum_{\substack{k \notin S_2^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+  \right]
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+- \sum_{l \in S_2^{(n)}} 
+   \sum_{\substack{k \notin S_1^{(n)} \\ k \ne j}} 
+  \pi_l \pi_{kj}
+  - \sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}}  \pi_l \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
++  \sum_{l \in S_1^{(n)}} 
+   \sum_{\substack{k \notin S_2^{(n)} \\ k \ne j}} 
+  \pi_l \pi_{kj}
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}} \pi_l  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+-\sum_{l \in S_2^{(n)}} \pi_l
+  \left[
+  \sum_{k \in S_2^{(n)}} 
+  \pi_{kj}
+  +
+  \sum_{\substack{k \notin S_1^{(n)} \cup S_2^{(n)} \\ k \ne j}} 
+  \pi_{kj}
+  \right]
+  - \sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
++  \sum_{l \in S_1^{(n)}} \pi_l 
+\left[
+  \sum_{k \in S_1^{(n)}} 
+  \pi_{kj}
+  +
+  \sum_{\substack{k \notin S_1^{(n)} \cup S_2^{(n)}  \\ k \ne j}} 
+  \pi_{kj}
+  \right]
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
 
 \end{document}
