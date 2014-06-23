@@ -23,7 +23,9 @@
 
 \section{notes on NGT}
 Proof of NGT, from \cite{wales.2009}.  We would like to know how the transition probabilities and waiting times
-are updated when node $x$ is removed.  The transition probability $P_{uv}$ is the probability that a markov chain 
+are updated when node $x$ is removed.  The node is not physically removed (the physics should remain the same), but it's
+removed from the equations in the sense of real space renormalization group.  
+The transition probability $P_{uv}$ is the probability that a markov chain 
 transitions directly from u to v.  When we remove node $x$ we must sum over all possible paths that go through $x$.
 As the nodes have self-transition probabilities, this is simply the sum over how many time steps the chain spends in $x$
 \begin{equation}
@@ -55,24 +57,21 @@ Finally we use $\sum_{v\ne x} P_{uv} = 1-P_{ux}$ and $\sum_{v\ne x} P_{xv} = 1-P
 
 \section{eigenvalues and vectors}
 
-The eigenvalues $\lambda_n$ and eigenvectors $\phi^{(n)}_i$ orthonormality
-
+The eigenvalues $\lambda_n$ and eigenvectors $\phi^{(n)}_i$ satisfy the orthonormality condition
 \begin{equation}
 \sum_i \phi^{(n)}_i \pi_i \phi^{(m)}_i = \delta_{nm}
 \end{equation}
-
 They also satisfy the eigenvector equation
 \begin{equation}
 \sum_i K_{ij} \evec{i}{n}  = \lambda_n \evec{j}{n}
 \end{equation}
-
 This can be written more compactly as
-
 \begin{align}
 \Phi^{T} \Pi \Phi = I \\
 K \Phi = \Phi \Lambda
 \end{align}
-where $\Pi$ and $\Lambda$ are diagonal matrices with $\pi_i$ and $\lambda_i$ along the diagonals.
+where $\Pi$ and $\Lambda$ are diagonal matrices with $\pi_i$ and $\lambda_i$ along the diagonals
+and $\Phi$ is the matrix who's columns are the eigenvectors $\Phi_{in} = \evec{i}{n}$.
 The inverse of $\Phi$ is $\Phi^{T} \Pi$.
 We can write K from the spectral decomposition
 \begin{align}
@@ -106,10 +105,8 @@ the spectrum of $K$.
 
 We will proceed by altering the original problem so that the energy of the node to be removed $E_{i^{*}}$
 is much less than all other energies in the problem.  The spectrum of $K$ is then computed.
-
 We will try to show that the eigenvectors of $\subK{}$ are the same as the eigenvectors of $K$ with 
 the $i^{*}$th element removed. The eigenvector corresponding to the zero eigenvalue is discarded.
-
 We are taking the limit $E_{i^{*}} \to -\infty$, so we will define a small parameter $p = \exp{\beta E_{i^{*}}}$.
 Numerically it appears that
 \begin{align}
@@ -144,13 +141,16 @@ K_{ij} \evec{j}{n}
 & \sim \lambda_n \evec{i}{n} + p (p - 1)
 \end{align}
 
-\subsection{conditioned submatrix}
+Thus as $p \to 0$ the eigenvalues and eigenvectors (for $n \ge 1$ and with index $i^{*}$ deleted) are the true
+eigenvalues and eigenvectors of $\subK{}$.
+
+\subsection{approximate conditioned submatrix}
 if we remove index $i^{*}$ then the conditioned submatrix is computed as
 \begin{equation}
 M_{ij} = \sum_{k} K^{+[i^{*}]}_{ik} \subK{}_{kj}  = 
 \sum_{k \ne i^{*}} \sum_n \lambda_n^{-1} \evec{i}{n} \evec{k}{n} \pi_k K_{kj}
 \end{equation}
-$\phi^{(n)}$ can be written in a convenient way as
+Our approximation to $\phi^{(n)}$ can be written in a convenient way as
 \begin{equation}
 \evec{i}{n} = A_n
 \begin{cases}
@@ -159,7 +159,7 @@ $\phi^{(n)}$ can be written in a convenient way as
 0 & \text{else}
 \end{cases}
 \end{equation}
-where $A_n$ is a normalization factor.  Plugging in $\evec{k}{n}$ we get ({\color{red} ignoring $i^{*}$})
+where $A_n$ is a normalization factor.  Plugging in $\evec{k}{n}$ we get ({\color{red} ignoring $i^{*}$ for the time being})
 \begin{equation}
 M_{ij} = \sum_{k} K^{+}_{ik} K_{kj}  = 
 \sum_n \lambda_n^{-1} \evec{i}{n} \left\{ 
@@ -176,14 +176,14 @@ M_{ij} = \sum_{k} K^{+}_{ik} K_{kj}  =
 \end{equation}
 Using the following definition for the rate matrix 
 \begin{equation}
-K_{ij} = P^{-1}
+K_{ij} = P
 \begin{cases}
  \pi_{ij} / \pi_i & i \ne j \\
 -\sum_{k \ne j} \pi_{jk} / \pi_j & i = j
 \end{cases}
 \end{equation}
 where $\pi_{ij} = \exp (-\beta E_{ij})$, and P is the normalization for the $\Pi$, e.g. ($\pi_i = P \exp (-\beta E_i)$).
-The equation for $M_{ij}$ can be re-written
+The equation for $M_{ij}$ can be re-written  ({\color{red} ignoring $A_n$ and $P$ for the time being})
 \begin{align}
 M_{ij} = 
 \sum_n \lambda_n^{-1} \evec{i}{n} 
@@ -259,7 +259,7 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
 \begin{cases}
 \sum_{l \in S_2^{(n)}} \pi_l
   \left[-
-  \sum_{\substack{k \notin S_1^{(n)} \\ k \ne j}} 
+  \sum_{k \notin S_1^{(n)}} 
   \pi_{kj}
   \right]
   - \sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
@@ -267,7 +267,7 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
 \sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
 -  \sum_{l \in S_1^{(n)}} \pi_l 
 \left[-
-  \sum_{\substack{k \notin S_2^{(n)} \\ k \ne j}} 
+  \sum_{k \notin S_2^{(n)}} 
   \pi_{kj}
   \right]
 & j \in S_2^{(n)} \\
@@ -277,25 +277,25 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
 & \text{else}
 \end{cases}
 \end{equation}
-\begin{equation}
-M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
-\begin{cases}
-- \sum_{l \in S_2^{(n)}} 
-   \sum_{\substack{k \notin S_1^{(n)} \\ k \ne j}} 
-  \pi_l \pi_{kj}
-  - \sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}}  \pi_l \pi_{kj}
- & j \in S_1^{(n)} \\
-\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
-+  \sum_{l \in S_1^{(n)}} 
-   \sum_{\substack{k \notin S_2^{(n)} \\ k \ne j}} 
-  \pi_l \pi_{kj}
-& j \in S_2^{(n)} \\
-\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
-- 
-\sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}} \pi_l  \pi_{kj}
-& \text{else}
-\end{cases}
-\end{equation}
+%\begin{equation}
+%M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+%\begin{cases}
+%- \sum_{l \in S_2^{(n)}} 
+%   \sum_{k \notin S_1^{(n)}} 
+%  \pi_l \pi_{kj}
+%  - \sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}}  \pi_l \pi_{kj}
+% & j \in S_1^{(n)} \\
+%\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
+%+  \sum_{l \in S_1^{(n)}} 
+%   \sum_{k \notin S_2^{(n)}} 
+%  \pi_l \pi_{kj}
+%& j \in S_2^{(n)} \\
+%\sum_{l \in S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_l \pi_{kj}
+%- 
+%\sum_{l \in S_1^{(n)}} \sum_{k \in S_2^{(n)}} \pi_l  \pi_{kj}
+%& \text{else}
+%\end{cases}
+%\end{equation}
 \begin{equation}
 M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
 \begin{cases}
@@ -304,7 +304,7 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
   \sum_{k \in S_2^{(n)}} 
   \pi_{kj}
   +
-  \sum_{\substack{k \notin S_1^{(n)} \cup S_2^{(n)} \\ k \ne j}} 
+  \sum_{k \notin S_1^{(n)} \cup S_2^{(n)}} 
   \pi_{kj}
   \right]
   - \sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
@@ -315,7 +315,7 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
   \sum_{k \in S_1^{(n)}} 
   \pi_{kj}
   +
-  \sum_{\substack{k \notin S_1^{(n)} \cup S_2^{(n)}  \\ k \ne j}} 
+  \sum_{k \notin S_1^{(n)} \cup S_2^{(n)}} 
   \pi_{kj}
   \right]
 & j \in S_2^{(n)} \\
@@ -325,5 +325,46 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
 & \text{else}
 \end{cases}
 \end{equation}
+After rearranging the sums, this can be written
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+-\sum_{l \in S_1^{(n)} \cup S_2^{(n)}} \pi_l
+\sum_{k \in S_2^{(n)}}  \pi_{kj}
+-\sum_{l \in S_2^{(n)}} \pi_l
+\sum_{k \notin S_1^{(n)} \cup S_2^{(n)}} \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S_1^{(n)} \cup S_2^{(n)}} \pi_l
+\sum_{k \in S_1^{(n)}}  \pi_{kj}
++ \sum_{l \in S_1^{(n)}} \pi_l
+\sum_{k \notin S_1^{(n)} \cup S_2^{(n)}} \pi_{kj}
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+To simplify notation, define $S^{(n)} = S_1^{(n)} \cup S_2^{(n)}$
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+-\sum_{l \in S^{(n)}} \pi_l
+\sum_{k \in S_2^{(n)}}  \pi_{kj}
+-\sum_{l \in S_2^{(n)}} \pi_l
+\sum_{k \notin S^{(n)}} \pi_{kj}
+ & j \in S_1^{(n)} \\
+\sum_{l \in S^{(n)}} \pi_l
+\sum_{k \in S_1^{(n)}}  \pi_{kj}
++ \sum_{l \in S_1^{(n)}} \pi_l
+\sum_{k \notin S^{(n)}} \pi_{kj}
+& j \in S_2^{(n)} \\
+\sum_{l \in S_2^{(n)}} \pi_l \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\sum_{l \in S_1^{(n)}} \pi_l \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+The remaining sums over $k$ are over distinct subsets, so unless $\pi_{lj} = \pi_{kj}$ for $k\ne l$ there will be no more canceling of terms.
 
 \end{document}
