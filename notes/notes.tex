@@ -21,6 +21,38 @@
 \begin{document}
 \maketitle
 
+\section{notes on NGT}
+Proof of NGT, from \cite{wales.2009}.  We would like to know how the transition probabilities and waiting times
+are updated when node $x$ is removed.  The transition probability $P_{uv}$ is the probability that a markov chain 
+transitions directly from u to v.  When we remove node $x$ we must sum over all possible paths that go through $x$.
+As the nodes have self-transition probabilities, this is simply the sum over how many time steps the chain spends in $x$
+\begin{equation}
+P'_{uv} = P_{uv} + P_{ux} P_{xv} \sum_{m=0}^{\infty} P_{xx} = P_{uv} + \frac{ P_{ux} P_{xv} }{ 1 - P_{xx} }
+\end{equation}
+Computing how the waiting time is updated is only slightly more involved.  The waiting time $\tau_u$ is the average time to transition
+from $u$ to one if it's neighbours.  After removing node $x$, $x$ will no longer be one of the neighbors of $u$, but we must sum
+over all paths through x to a neighbour
+\begin{equation}
+\tau'_u = \sum_{v \ne x} \left\{ 
+P_{uv} \tau_u + P_{ux} P_{xv} \left[ 
+(\tau_u + \tau_x) + \sum_{m=1}^{\infty} (\tau_u + (m+1) \tau_x) P_{xx}^m
+\right]
+\right\}
+\end{equation}
+After some algebra, and resolving the sums ($\sum_{m=0}^{\infty} p^m = 1/(1-p)$ and $\sum_{m=0}^{\infty} m p^m = p/(1-p)^2$), this becomes
+\begin{equation}
+\tau'_u = \sum_{v \ne x} \left\{ 
+P_{uv} \tau_u + P_{ux} P_{xv} \left[ 
+\frac{\tau_u}{1-P_{xx}} + \frac{\tau_x}{(1-P_{xx})^2}
+\right]
+\right\}
+\end{equation}
+Finally we use $\sum_{v\ne x} P_{uv} = 1-P_{ux}$ and $\sum_{v\ne x} P_{xv} = 1-P_{xx}$ to conclude that
+\begin{equation}
+\tau'_u = \tau_u + \frac{ P_{ux} \tau_x}{1-P_{xx}}
+\end{equation}
+
+
 \section{eigenvalues and vectors}
 
 The eigenvalues $\lambda_n$ and eigenvectors $\phi^{(n)}_i$ orthonormality
