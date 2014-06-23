@@ -1511,8 +1511,8 @@ def test_precond2(n=8, T=.01):
     seed = 5699024 #n=6
     seed = 1492541 #n=5
     seed = 8833179 #n=4
-    seed = 10
-#     seed = np.random.randint(10000000)
+#    seed = 10
+#    seed = np.random.randint(10000000)
     print "seed", seed
     np.random.seed(seed)
     Ei, Eij = make_random_energies_complete(n)
@@ -1526,4 +1526,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
     mpmath.mp.dps = 200
 #     test1()
-    test_precond2(n=9, T=.1)
+    test_precond2(n=4, T=.1)

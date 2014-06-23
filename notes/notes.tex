@@ -365,6 +365,68 @@ M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n}
 & \text{else}
 \end{cases}
 \end{equation}
+In order to further simplify things we now define $\pi_{S} = \sum_{i \in S} \pi_i$
+\begin{equation}
+M_{ij} = \sum_n \lambda_n^{-1} \evec{i}{n} 
+\begin{cases}
+-\pi_{S^{(n)}}
+\sum_{k \in S_2^{(n)}}  \pi_{kj}
+-\pi_{S_2^{(n)}}
+\sum_{k \notin S^{(n)}} \pi_{kj}
+ & j \in S_1^{(n)} \\
+\pi_{S^{(n)}}
+\sum_{k \in S_1^{(n)}}  \pi_{kj}
++ \pi_{S_1^{(n)}}
+\sum_{k \notin S^{(n)}} \pi_{kj}
+& j \in S_2^{(n)} \\
+\pi_{S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\pi_{S_1^{(n)}} \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
 The remaining sums over $k$ are over distinct subsets, so unless $\pi_{lj} = \pi_{kj}$ for $k\ne l$ there will be no more canceling of terms.
+
+To proceed further we note that the $S$ sets have the property that $S_1^{(m)}$ and  $S_2^{(m)}$ are completely contained
+in $S_1^{(n)}$ or $S_2^{(n)}$ or neither for all $m > n$
+\begin{equation}
+S_1^{(m)} \cup S_2^{(m)} \subseteq 
+\begin{cases}
+S_1^{(n)} & \text{or} \\
+S_2^{(n)} & \text{or} \\
+\text{neither} & {}
+\end{cases}
+\end{equation}
+It is this property that leads to orthogonality between the eigenvectors.
+
+(new thought) But the eigenvalues are all different, so in order to get exact cancellation we need to use them.  We first write 
+the eigenvalues in terms of $\pi_{ij}$
+\begin{equation}
+\lambda_n = \pi_{p_n q_n}
+\end{equation}
+which has the property that $p_n \in S_1^{(n)}$ and $q_n \in S_2^{(n)}$
+\begin{equation}
+M_{ij} = \sum_n \pi_{p_n q_n}^{-1} 
+\left( \pi_{S_2^{(n)}} \delta \left(i \in S_1^{(n)}\right) 
++ \pi_{S_1^{(n)}} \delta \left(i  \in S_2^{(n)}\right) 
+\right)
+\begin{cases}
+-\pi_{S^{(n)}}
+\sum_{k \in S_2^{(n)}}  \pi_{kj}
+-\pi_{S_2^{(n)}}
+\sum_{k \notin S^{(n)}} \pi_{kj}
+ & j \in S_1^{(n)} \\
+\pi_{S^{(n)}}
+\sum_{k \in S_1^{(n)}}  \pi_{kj}
++ \pi_{S_1^{(n)}}
+\sum_{k \notin S^{(n)}} \pi_{kj}
+& j \in S_2^{(n)} \\
+\pi_{S_2^{(n)}} \sum_{k \in S_1^{(n)}}  \pi_{kj}
+- 
+\pi_{S_1^{(n)}} \sum_{k \in S_2^{(n)}}  \pi_{kj}
+& \text{else}
+\end{cases}
+\end{equation}
+
 
 \end{document}
