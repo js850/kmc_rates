@@ -34,12 +34,12 @@ from $u$ to one if it's neighbours.  After removing node $x$, $x$ will no longer
 over all paths through x to a neighbour
 \begin{equation}
 \tau'_u = \sum_{v \ne x} \left\{ 
-P_{uv} \tau_u + P_{ux} P_{xv} \left[ 
-(\tau_u + \tau_x) + \sum_{m=1}^{\infty} (\tau_u + (m+1) \tau_x) P_{xx}^m
-\right]
+P_{uv} \tau_u + P_{ux} P_{xv}
+\sum_{m=0}^{\infty} \left[ \tau_u + (m+1) \tau_x \right] P_{xx}^{m}
 \right\}
 \end{equation}
-After some algebra, and resolving the sums ($\sum_{m=0}^{\infty} p^m = 1/(1-p)$ and $\sum_{m=0}^{\infty} m p^m = p/(1-p)^2$), this becomes
+
+After resolving the sums ($\sum_{m=0}^{\infty} p^m = 1/(1-p)$ and $\sum_{m=0}^{\infty} m p^m = p/(1-p)^2$), this becomes
 \begin{equation}
 \tau'_u = \sum_{v \ne x} \left\{ 
 P_{uv} \tau_u + P_{ux} P_{xv} \left[ 
