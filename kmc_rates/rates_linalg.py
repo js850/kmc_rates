@@ -443,11 +443,11 @@ class TwoStateRates(object):
                 else:
                     vcomm = self.committor_dict[v]
                 a_committors[u] += rate * vcomm
-        for a, c in a_committors.iteritems():
-            a_committors[a] /= self.sum_out_rates[a]
+#        for a, c in a_committors.iteritems():
+#            a_committors[a] /= self.sum_out_rates[a]
         # the sum_out_rates cancels here, we can remove it
         
-        rate = sum((self.weights[a] * a_committors[a] * self.sum_out_rates[a] for a in self.A))
+        rate = sum((self.weights[a] * a_committors[a] for a in self.A))
         norm = sum((self.weights[a] for a in self.A))
         
         return rate / norm

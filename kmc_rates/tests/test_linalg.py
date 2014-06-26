@@ -29,12 +29,50 @@ class TestLinalg3(unittest.TestCase):
     def test02(self):
         self._test_rate(0,2)
 
+class TestNgtCpp10(unittest.TestCase):
+    def setUp(self):
+        from test_cpp_ngt import make_rates_complete
+        self.rates = make_rates_complete(nnodes=10)
+        # all rates after graph renormalization should be 1.0
+        self.true_kAB = 5.1013138820442565
+        self.true_kBA = 3
+        self.true_kAB_SS = 19.933950145409426
+        self.true_kBA_SS = 6.970856553435547
+
+    def _test_rate(self, A, B):
+#        from kmc_rates import GraphReduction
+        reducer = TwoStateRates(self.rates, A, B)
+        reducer.compute_rates()
+        reducer.compute_committors()
+        kAB = reducer.get_rate_AB()
+        self.assertAlmostEqual(kAB, self.true_kAB, 7)
+#        kBA = reducer.get_rate_BA()
+#        self.assertAlmostEqual(kBA, self.true_kBA, 7)
+
+        rAB_SS = reducer.get_rate_AB_SS()
+        self.assertAlmostEqual(rAB_SS, self.true_kAB_SS, 7)
+#        rBA_SS = reducer.get_rate_BA_SS()
+#        self.assertAlmostEqual(rBA_SS, self.true_kBA_SS, 7)
+
+    def test01(self):
+        self._test_rate([0,1,2],[3,4,5])
+
+
 class TestLinalgRandom(unittest.TestCase):
     def do_test(self, A, B, nnodes=20, nedges=20):
         maker = _MakeRandomGraph(nnodes=20, nedges=20, node_set=A+B)
         rates = maker.make_rates()
-        reducer = MfptLinalgSparse(rates, B)
-        reducer.compute_mfpt()
+        reducer = TwoStateRates(rates, A, B)
+        reducer.compute_rates()
+        reducer.compute_committors()
+        
+        from kmc_rates.ngt import NGT
+        ngt = NGT(rates, A, B)
+        ngt.compute_rates()
+        
+        self.assertAlmostEqual(reducer.get_rate_AB(), ngt.get_rate_AB(), 7)
+        self.assertAlmostEqual(reducer.get_rate_AB_SS(), ngt.get_rate_AB_SS(), 7)
+
 
     def test(self):
         A, B = [0], [1]
