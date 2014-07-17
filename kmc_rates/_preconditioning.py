@@ -17,6 +17,28 @@ def print_matrix(m, fmt="%9.3g"):
     return
     np.savetxt(sys.stdout, m, fmt=fmt)
 
+def make_dgraph(spect):
+    from pele.storage import Database
+    from pele.utils.disconnectivity_graph import DisconnectivityGraph, database2graph
+    mst = spect._make_minimum_spanning_tree()
+
+    db = Database()
+    node2minimum = dict()
+    for u, v, data in mst.edges_iter(data=True):
+        Ets = data["energy"]
+        mu = db.addMinimum(spect.Ei[u], [0])
+        mv = db.addMinimum(spect.Ei[v], [0])
+        mu.nodeid = u
+        mv.nodeid = v
+        node2minimum[u] = mu
+        node2minimum[v] = mv
+        db.addTransitionState(Ets, [0], mu, mv)
+    dgraph = DisconnectivityGraph(database2graph(db), nlevels=spect.nnodes+10)
+    dgraph.calculate()
+    dgraph.plot(show_minima=True)
+    dgraph.show()
+
+
 class ViewMSTSpectralDecomp(object):
     def __init__(self, spect):
         self.spect = spect
@@ -748,6 +770,8 @@ class MSTSpectralDecomposition(object):
         if s in S2:
             S1, S2 = S2, S1
         assert s in S1 and s not in S2
+        print "S1:", sorted(S1)
+        print "S2:", sorted(S2)
         
         is1 = np.array([self.node2index[node] for node in S1])
         is2 = np.array([self.node2index[node] for node in S2])
@@ -849,8 +873,8 @@ class MSTSpectralDecomposition(object):
                 print "total # edges", mst.number_of_edges()
                 print "size of component connected to current sink", len(nx.node_connected_component(mst, s))
             
-                for i, ui in barrier_function.iteritems(): 
-                    print "  barrier_function[",i,"] = ", ui
+#                for i, ui in barrier_function.iteritems(): 
+#                    print "  barrier_function[",i,"] = ", ui
             
             # find the new cutting edge
             Epq, p, q = self._find_cutting_edge(mst, s, barrier_function, sinks)
@@ -1411,7 +1435,8 @@ class MSTPreconditioning(object):
         
         self.test_submatrix_eigenvectors()
 
-#         viewer = ViewMSTSpectralDecomp(self.spect)
+        make_dgraph(self.spect)
+        viewer = ViewMSTSpectralDecomp(self.spect)
         
  
 #
@@ -1517,6 +1542,9 @@ def test_precond2(n=8, T=.01):
     np.random.seed(seed)
     Ei, Eij = make_random_energies_complete(n)
     print "energies", Ei
+    print "transition state energies"
+    for (i,j), e in Eij.iteritems():
+        print "    ", i, j, e 
     precond = MSTPreconditioning(Ei, Eij, [1], T=T)   
     precond.run_tests()
     precond.compute_mfp_times()
