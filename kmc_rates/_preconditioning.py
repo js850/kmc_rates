@@ -730,13 +730,14 @@ class MSTSpectralDecomposition(object):
         escape_function[s] = 0.
 
     def _get_connected_sink(self, mst, s, sinks):
-        s2 = None
+        connected_sinks = []
         for parent, child in nx.bfs_edges(mst, s):
             if child in sinks:
-                s2 = child
-                break
-        assert s2 is not None
-        return s2
+                connected_sinks.append(child)
+                print "note: should break here to increase speed"
+#                break
+        assert len(connected_sinks) == 1
+        return connected_sinks[0]
 
 
     def _find_cutting_edge(self, mst, s1, barrier_function, sinks):
@@ -751,6 +752,7 @@ class MSTSpectralDecomposition(object):
             print "path", path
         Ets, i, j = max(((self._get_edge_energy(i,j), i, j) for i, j in izip(path, path[1:])))
         assert barrier_function[i] == barrier_function[s1]
+        assert barrier_function[j] < barrier_function[s1]
 #         assert barrier_function[]
         return Ets, i, j
 
@@ -837,9 +839,9 @@ class MSTSpectralDecomposition(object):
 
         # the barrier function gives the minimax barrier separating
         # a node from a sink node
-        barrier_function = dict()
+        barrier_function = dict() # called u() in paper
         # the escape function is usually barrier_function[i] - E[i]
-        escape_function = dict() # escape function
+        escape_function = dict() # called v() in paper
 
         self.log_eigenvalues = np.zeros(self.nnodes) # used to compute eigenvalues
         self.eigenvalues = np.zeros(self.nnodes)
@@ -876,7 +878,8 @@ class MSTSpectralDecomposition(object):
 #                for i, ui in barrier_function.iteritems(): 
 #                    print "  barrier_function[",i,"] = ", ui
             
-            # find the new cutting edge
+            # find the new cutting edge.  This is the edge with the maximum 
+            # barrier in the path connecting s to another sink
             Epq, p, q = self._find_cutting_edge(mst, s, barrier_function, sinks)
             if self.verbose:
                 s2 = self._get_connected_sink(mst, s, sinks)
@@ -1150,6 +1153,8 @@ class MSTPreconditioning(object):
         return M
 
     def compute_mfp_times(self):
+        print "\n\nin compute_mfp_times:"
+        print "---------------------"
         M = self.make_preconditioned_submatrix()
         b = self.make_mfpt_right_vector()
         print "m shape", M.shape, b.shape
@@ -1199,6 +1204,8 @@ class MSTPreconditioning(object):
 
     
     def test_submatrix_eigenvectors(self):
+        print "\n\nIn test_submatrix_eigenvectors():"
+        print "---------------------------------"
         assert len(self.sinks_indices) == 1
         iremove = iter(self.sinks_indices).next()
 #        nnew = self.spect.nnodes - 1
@@ -1229,13 +1236,13 @@ class MSTPreconditioning(object):
 #        print "reduced eigenvector 1 dot reduced eigenvector 2"
 #        print np.sum(evecs[:,1] * evecs[:,2] * pi)
         
-        print "\ntesting eigenvectors are normal"
+        print "\ntesting eigenvectors (of submatrix) are normal"
         for n1 in xrange(1,self.spect.nnodes):
             r = self.test_eigenvector_orthonormality(n1, n1, iremove)
             if np.abs(r-1) > .1:
                 print "  ", n1, ":", r 
 
-        print "testing eigenvectors are orthogonal"
+        print "testing eigenvectors (of submatrix) are orthogonal"
         for n1 in xrange(1,self.spect.nnodes):
             for m1 in xrange(1,self.spect.nnodes):
                 if n1 == m1:
@@ -1243,12 +1250,12 @@ class MSTPreconditioning(object):
                 r = self.test_eigenvector_orthonormality(n1, m1, iremove)
                 if np.abs(r) > 1e-2:
                     print "  ", n1, m1, ":", r
-        print "testing eigenvector equation (n==m)"
+        print "testing eigenvector equation (phi_n*pi*K*phi_m == lambda_n delta_nm)  (for submatrix) (n==m)"
         for n1 in xrange(1,self.spect.nnodes):
             lam = self.test_eigenvector_equation(n1, n1, iremove)
             lam_full = self.test_eigenvector_equation(n1, n1, -1)
-            print "  ", n1, ":", lam, "expected", self.spect.eigenvalues[n1], "full", lam_full
-        print "testing eigenvector equation (n!=m)"
+            print "  ", n1, ":", lam, "expected", self.spect.eigenvalues[n1], "  (full matrix", lam_full, ")"
+        print "testing eigenvector equation (phi_n*pi*K*phi_m == lambda delta_nm)   (n!=m) (for submatrix)"
         for n1 in xrange(1,self.spect.nnodes):
             for m1 in xrange(1,self.spect.nnodes):
                 if n1 == m1:
@@ -1286,7 +1293,9 @@ class MSTPreconditioning(object):
 #        print_matrix(get_eigs(self.spect.Ei, self.spect.Eij, self.spect.T)[1])
 #        print ""
     
-    def test_result(self, K, Kinv, iremove):
+    def test_result(self, K, Kinv, iremove, note=""):
+        print "\nIn test_result(): testing submatrices with iremove = ", iremove, "(", note, ")" 
+        print "----------------------------------------------------------------------------"
         i = iremove
         Ksub = self.make_submatrix(K, iremove)
         Kinv_sub = self.make_submatrix(Kinv, iremove)
@@ -1295,7 +1304,7 @@ class MSTPreconditioning(object):
         Ksub_cond = self.make_preconditioned_submatrix(iremove)
         cond_approx = np.linalg.cond(Ksub_cond)
         if self.spect.pi[iremove] > .1 or cond < 1e5 or cond_approx < 1e5:
-            print "\nremoving the row and column", iremove
+            print "run more tests after removing row and column", iremove
             print "pi of this node", self.spect.pi[iremove]
             print "(submatrix(pseudo inverse K) * submatrix(K)) (exact)"
             print_matrix(red)
@@ -1317,6 +1326,8 @@ class MSTPreconditioning(object):
             print "condition number:", cond_approx
     
     def run_tests(self):
+        print "\n\nIn run_tests():"
+        print "-------------------"
         n = len(self.spect.Ei)
         evals = self.spect.eigenvalues
         evecs = self.spect.eigenvectors
@@ -1341,6 +1352,7 @@ class MSTPreconditioning(object):
 #            mat_inv += 1./evals[k] * np.outer(v, v * pi)
 
         if True:
+            m = self.K
             mat = self.K
             mat_inv = self.make_K_inv()
         
@@ -1370,17 +1382,17 @@ class MSTPreconditioning(object):
 #        print "conditioned matrix (K_inv * K)"
 #        print_matrix(Kcond)
         if True:
-            print "\n(pseudo inverse K) * K (approx)"
+            print "\n(pseudo inverse K from appriximate eigenvectors) * K"
             print_matrix(mat_inv.dot(m))
-            print "(pseudo inverse K) * K (exact)"
+            print "\n(pseudo inverse K from 'exact' eigenvectors) * K"
             print_matrix(xmat_inv.dot(m))
-            print "\nremoving the first row and column"
-            print "submatrix(pseudo inverse K) * submatrix(K) (exact)"
+            print "\nremoving row and column 1"
+            print "\submatrix(npseudo inverse K from 'exact' eigenvectors) * submatrix(K)"
             sl = slice(1,None)
             print_matrix(np.dot(xmat_inv[sl,sl], m[sl,sl]))
             print "eigenvalues of submatrix(K)"
             print_matrix(np.linalg.eigvals(m[sl,sl]))
-            print "eigenvalues of (submatrix(pseudo inverse K) * submatrix(K)) (exact)"
+            print "eigenvalues of (submatrix(pseudo inverse K from exact eigenvectors) * submatrix(K)) (exact)"
             print_matrix(np.linalg.eigvals(xmat_inv[sl,sl].dot(m[sl,sl])))
             print "condition number:", np.linalg.cond(xmat_inv[sl,sl].dot(m[sl,sl]))
         
@@ -1395,7 +1407,7 @@ class MSTPreconditioning(object):
             print ""
 
         for i in xrange(self.spect.nnodes):
-            self.test_result(m, xmat_inv, i)
+            self.test_result(m, xmat_inv, i, note="Kinv is make from 'exact' eigenvectors")
         
         if False:
             Kcond = np.dot(mat_inv[:-1,:-1], m[:-1,:-1])
@@ -1435,8 +1447,8 @@ class MSTPreconditioning(object):
         
         self.test_submatrix_eigenvectors()
 
-        make_dgraph(self.spect)
-        viewer = ViewMSTSpectralDecomp(self.spect)
+#        make_dgraph(self.spect)
+#        viewer = ViewMSTSpectralDecomp(self.spect)
         
  
 #
@@ -1549,9 +1561,12 @@ def test_precond2(n=8, T=.01):
     precond.run_tests()
     precond.compute_mfp_times()
     
+    make_dgraph(precond.spect)
+    viewer = ViewMSTSpectralDecomp(precond.spect)
+    
 
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
     mpmath.mp.dps = 200
 #     test1()
-    test_precond2(n=4, T=.1)
+    test_precond2(n=10, T=.1)
