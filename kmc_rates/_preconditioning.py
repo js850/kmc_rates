@@ -1061,13 +1061,13 @@ class MSTPreconditioning(object):
                     for k in xrange(self.spect.nnodes): # matrix multiplication index
                         if k == iremove:
                             continue
-                        M[inew,jnew] +=(
-                                        evecs[i,n]
-                                        * K[k,j]
-                                        * evecs[k,n]
-                                        * pi[k]
-                                        / evals[n] 
-                                        )
+                        M[inew,jnew] -= (
+                                         evecs[i,n]
+                                         * K[k,j]
+                                         * evecs[k,n]
+                                         * pi[k]
+                                         / evals[n] 
+                                         )
         return M
 
     def make_preconditioned_submatrix(self, iremove=None, mp=True):
@@ -1152,6 +1152,40 @@ class MSTPreconditioning(object):
         M[i:,i:] = K[i+1:,i+1:]
         return M
 
+    def test_pseudo_inverse_properties(self):
+        print "\n\nIn test_pseudo_inverse_properties():"
+        print "------------------------------------"
+        K = self.K
+        Kinv = self.make_K_inv()
+        print "K * Kinv * K =?= K"
+        A = K.dot(Kinv.dot(K))
+        B = K
+        print_matrix(A)
+        print_matrix(B)
+        print_matrix(np.abs(A-B) / (np.where(np.abs(A) > np.abs(B), np.abs(A), np.abs(B))))
+        print "max normalized diff", np.nanmax(np.abs(A-B) / (np.abs(A) + np.abs(B)))
+
+        print "\nKinv * K * Kinv =?= Kinv"
+        A = Kinv.dot(K.dot(Kinv))
+        B = Kinv
+        print_matrix(A)
+        print_matrix(B)
+        print "max normalized diff", np.nanmax(np.abs(A-B) / (np.abs(A) + np.abs(B)))
+
+        print "\n(K * Kinv)^T =?= K*Kinv"
+        A = (K.dot(Kinv)).transpose()
+        B = K.dot(Kinv)
+        print_matrix(A)
+        print_matrix(B)
+        print "max normalized diff", np.nanmax(np.abs(A-B) / (np.abs(A) + np.abs(B)))
+
+        print "\n(Kinv * K)^T =?= Kinv * K"
+        A = (Kinv.dot(K)).transpose()
+        B = Kinv.dot(K)
+        print_matrix(A)
+        print_matrix(B)
+        print "max normalized diff", np.nanmax(np.abs(A-B) / (np.abs(A) + np.abs(B)))
+
     def compute_mfp_times(self):
         print "\n\nin compute_mfp_times:"
         print "---------------------"
@@ -1164,6 +1198,8 @@ class MSTPreconditioning(object):
         print_matrix(Mfloat)
         print "\nconditioned matrix (mpmath)"
         print_matrix(M)
+        print "difference between them"
+        print Mfloat - M
         print "condition number of conditioned matrix", np.linalg.cond(M)
         times = np.linalg.solve(M, b)
         print "mean first passage times"
@@ -1560,6 +1596,7 @@ def test_precond2(n=8, T=.01):
     precond = MSTPreconditioning(Ei, Eij, [1], T=T)   
     precond.run_tests()
     precond.compute_mfp_times()
+#    precond.test_pseudo_inverse_properties()
     
     make_dgraph(precond.spect)
     viewer = ViewMSTSpectralDecomp(precond.spect)
@@ -1569,4 +1606,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
     mpmath.mp.dps = 200
 #     test1()
-    test_precond2(n=10, T=.1)
+    test_precond2(n=4, T=.2)
