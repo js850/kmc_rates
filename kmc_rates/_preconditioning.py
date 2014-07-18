@@ -980,7 +980,7 @@ class MSTPreconditioning(object):
         self.Ei_orig = Ei.copy()
         Emin = min(Ei.itervalues())
         for s in sinks:
-            Ei[s] = Emin - 20
+            Ei[s] = Emin - 5
         return Ei
 
         
@@ -1042,9 +1042,13 @@ class MSTPreconditioning(object):
 
 
     def make_preconditioned_submatrix_mp(self, iremove=None):
-        print "removing index", iremove
-        nnew = self.spect.nnodes - 1
-        ilist = range(iremove) + range(iremove+1,self.spect.nnodes)
+#        print "removing index", iremove
+        if iremove < 0:
+            nnew = self.spect.nnodes
+            ilist = range(self.spect.nnodes)
+        else:
+            nnew = self.spect.nnodes - 1
+            ilist = range(iremove) + range(iremove+1,self.spect.nnodes)
         K = self.make_rate_matrix_mp()
         
         pi = self.spect.mppi
@@ -1071,6 +1075,7 @@ class MSTPreconditioning(object):
         return M
 
     def make_preconditioned_submatrix(self, iremove=None, mp=True):
+        """return K^{+} * K""" 
         if iremove is None:
             assert len(self.sinks_indices) == 1
             iremove = iter(self.sinks_indices).next()
@@ -1150,6 +1155,8 @@ class MSTPreconditioning(object):
         M = np.zeros([n-1,n-1])
         M[:i,:i] = K[:i,:i]
         M[i:,i:] = K[i+1:,i+1:]
+        M[:i,i:] = K[:i,i+1:]
+        M[i:,:i] = K[i+1:,:i]
         return M
 
     def test_pseudo_inverse_properties(self):
@@ -1420,17 +1427,36 @@ class MSTPreconditioning(object):
         if True:
             print "\n(pseudo inverse K from appriximate eigenvectors) * K"
             print_matrix(mat_inv.dot(m))
+            print "\n(pseudo inverse K from appriximate eigenvectors) * K (from mpmath)"
+            print_matrix(self.make_preconditioned_submatrix(iremove=-1, mp=True))
             print "\n(pseudo inverse K from 'exact' eigenvectors) * K"
             print_matrix(xmat_inv.dot(m))
-            print "\nremoving row and column 1"
-            print "\submatrix(npseudo inverse K from 'exact' eigenvectors) * submatrix(K)"
-            sl = slice(1,None)
-            print_matrix(np.dot(xmat_inv[sl,sl], m[sl,sl]))
+            print "the above should be equal to I_ij - pi_j"
+            print_matrix(np.eye(m.shape[0]) - self.spect.pi[np.newaxis,:])
+            
+            iremove = 1
+            print "\nremoving row and column", iremove
+            mat_inv_sub = self.make_submatrix(mat_inv, iremove)
+            xmat_inv_sub = self.make_submatrix(xmat_inv, iremove)
+            m_sub = self.make_submatrix(m, iremove)
+            print "submatrix(pseudo inverse K from approximate eigenvectors) * submatrix(K)"
+            print_matrix(np.dot(mat_inv_sub, m_sub))
+            print "submatrix(pseudo inverse K from approximate eigenvectors) * submatrix(K) (mpmath)"
+            print_matrix(self.make_preconditioned_submatrix(iremove=iremove, mp=True))
+            print "submatrix(pseudo inverse K from 'exact' eigenvectors) * submatrix(K)"
+            print_matrix(np.dot(xmat_inv_sub, m_sub))
+            print "the above should be equal to I_ij - pi_j - K^+_i1 * K_1j"
+            pi_sub = np.zeros([self.spect.pi.size-1])
+            pi_sub[:iremove] = self.spect.pi[:iremove]
+            pi_sub[iremove:] = self.spect.pi[iremove+1:]
+            term1 = np.eye(m_sub.shape[0]) - pi_sub[np.newaxis,:]
+            term2 = self.make_submatrix(np.outer(xmat_inv[:,iremove], m[iremove,:]), iremove)
+            print_matrix(term1 - term2)
             print "eigenvalues of submatrix(K)"
-            print_matrix(np.linalg.eigvals(m[sl,sl]))
+            print_matrix(np.linalg.eigvals(m_sub))
             print "eigenvalues of (submatrix(pseudo inverse K from exact eigenvectors) * submatrix(K)) (exact)"
-            print_matrix(np.linalg.eigvals(xmat_inv[sl,sl].dot(m[sl,sl])))
-            print "condition number:", np.linalg.cond(xmat_inv[sl,sl].dot(m[sl,sl]))
+            print_matrix(np.linalg.eigvals(xmat_inv_sub.dot(m_sub)))
+            print "condition number:", np.linalg.cond(xmat_inv_sub.dot(m_sub))
         
         if False:
             print "\nnow removing the last row and column"
