@@ -629,11 +629,11 @@ class _EigenvectorRepresentation(object):
     def make_mp_eigenvector(self):
         print "pi_S1", float(sum(self.mppi[i] for i in self.group1))
         print "pi_S2", float(sum(self.mppi[i] for i in self.group2))
-        isum_pi1 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group1))
-        isum_pi2 = mpmath.mpf(1) / sum((self.mppi[i] for i in self.group2))
-        norm = mpmath.sqrt(isum_pi1 + isum_pi2)
-        C1 = isum_pi1 / norm
-        C2 = isum_pi2 / norm
+        sum_pi1 = sum((self.mppi[i] for i in self.group1))
+        sum_pi2 = sum((self.mppi[i] for i in self.group2))
+        norm = mpmath.sqrt(sum_pi1 + sum_pi2)
+        C1 = mpmath.sqrt(sum_pi2 / sum_pi1) / norm
+        C2 = mpmath.sqrt(sum_pi1 / sum_pi2) / norm
         
         v = mpmath.matrix([0.]*self.nnodes)
         for i in self.group1:
@@ -646,10 +646,11 @@ class _EigenvectorRepresentation(object):
 
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
-    def __init__(self, Ei, Eij, T=.1, verbose=True):
+    def __init__(self, Ei, Eij, T=.1, verbose=True, normalize_pi=False):
         self.Ei = Ei
         self.Eij = Eij
         self.T = T
+        self.normalize_pi = normalize_pi
         self.verbose = verbose
         self.nnodes = len(self.Ei)
         self._make_node_to_index()
@@ -667,16 +668,18 @@ class MSTSpectralDecomposition(object):
     def _make_equilibrium_occupation_probabilities_mp(self):
         self.mppi = mpmath.matrix([mpmath.exp(mpmath.mpf(-self.Ei[node]) / self.T) 
                          for node in self.node_list])
-        self.mppi /= sum(self.mppi)
+        if self.normalize_pi:
+            self.mppi /= sum(self.mppi)
         print "mp pi"#, mp.dps, mpmath
         print self.mppi
         
     def _make_equilibrium_occupation_probabilities(self):
         self._make_equilibrium_occupation_probabilities_mp()
         log_pi = np.array([-self.Ei[node] / self.T for node in self.node_list])
-        # normalize log_pi
-        log_sum_pi = scipy.misc.logsumexp(log_pi)
-        log_pi -= log_sum_pi
+        if self.normalize_pi:
+            # normalize log_pi
+            log_sum_pi = scipy.misc.logsumexp(log_pi)
+            log_pi -= log_sum_pi
         self.pi = np.exp(log_pi)
         self.log_pi = log_pi
         
@@ -920,7 +923,7 @@ class MSTSpectralDecomposition(object):
             print_matrix(self.eigenvectors)
             print ""
             print "eigenvectors (mpmath)"
-            print self.eigenvectors_mp
+            print_matrix(np.array(self.eigenvectors_mp.tolist(), dtype=float))
 
 def subtract_exp(pos, neg):
     if np.isnan(pos):
@@ -1043,7 +1046,7 @@ class MSTPreconditioning(object):
 
     def make_preconditioned_submatrix_mp(self, iremove=None):
 #        print "removing index", iremove
-        if iremove < 0:
+        if iremove < 0 or iremove is None:
             nnew = self.spect.nnodes
             ilist = range(self.spect.nnodes)
         else:
@@ -1056,6 +1059,7 @@ class MSTPreconditioning(object):
         evals = self.spect.eigenvalues_mp
         
         M = mpmath.matrix(nnew,nnew)
+        M *= 0
         
         for inew in xrange(nnew): # index i
             i = ilist[inew]
@@ -1067,9 +1071,9 @@ class MSTPreconditioning(object):
                             continue
                         M[inew,jnew] -= (
                                          evecs[i,n]
-                                         * K[k,j]
                                          * evecs[k,n]
                                          * pi[k]
+                                         * K[k,j]
                                          / evals[n] 
                                          )
         return M
@@ -1403,6 +1407,8 @@ class MSTPreconditioning(object):
             print ""
             print "approximate K matrix"
             print_matrix(mat)
+            print "approximate K matrix (mpmath)"
+            print_matrix(np.array(self.make_rate_matrix_mp().tolist(), dtype=float))
             print "K (from exact eigenvectors)"
             print_matrix(xmat)
             print "exact K matrix"
@@ -1431,8 +1437,10 @@ class MSTPreconditioning(object):
             print_matrix(self.make_preconditioned_submatrix(iremove=-1, mp=True))
             print "\n(pseudo inverse K from 'exact' eigenvectors) * K"
             print_matrix(xmat_inv.dot(m))
-            print "the above should be equal to I_ij - pi_j"
-            print_matrix(np.eye(m.shape[0]) - self.spect.pi[np.newaxis,:])
+            pinorm = self.spect.pi / np.sum(self.spect.pi)
+
+            print "the above should be equal to I_ij - pi_j / sum(pi)"
+            print_matrix(np.eye(m.shape[0]) - pinorm[np.newaxis,:])
             
             iremove = 1
             print "\nremoving row and column", iremove
@@ -1445,10 +1453,10 @@ class MSTPreconditioning(object):
             print_matrix(self.make_preconditioned_submatrix(iremove=iremove, mp=True))
             print "submatrix(pseudo inverse K from 'exact' eigenvectors) * submatrix(K)"
             print_matrix(np.dot(xmat_inv_sub, m_sub))
-            print "the above should be equal to I_ij - pi_j - K^+_i1 * K_1j"
+            print "the above should be equal to I_ij - pi_j / sum(pi) - K^+_i1 * K_1j"
             pi_sub = np.zeros([self.spect.pi.size-1])
-            pi_sub[:iremove] = self.spect.pi[:iremove]
-            pi_sub[iremove:] = self.spect.pi[iremove+1:]
+            pi_sub[:iremove] = pinorm[:iremove]
+            pi_sub[iremove:] = pinorm[iremove+1:]
             term1 = np.eye(m_sub.shape[0]) - pi_sub[np.newaxis,:]
             term2 = self.make_submatrix(np.outer(xmat_inv[:,iremove], m[iremove,:]), iremove)
             print_matrix(term1 - term2)
@@ -1630,6 +1638,6 @@ def test_precond2(n=8, T=.01):
 
 if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
-    mpmath.mp.dps = 200
+    mpmath.mp.dps = 2000
 #     test1()
-    test_precond2(n=4, T=.2)
+    test_precond2(n=3, T=.2)
