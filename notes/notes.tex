@@ -219,6 +219,103 @@ errors in our approximate eigenvectors play a role here.
 I checked this numerically and found that it is correct for exact eigenvectors, but it fails pretty dramatically
 for the approximate eigenvectors.
 
+\subsection{apprimate eigenvalues and eigenvectors}
+
+The approximate eigenvectors are constructed iteratively.  At step $n$ in the iteration
+$s_n$ is the new sink node.  The highest barrier separating $s_n$ from a previous sink node $s_n^{old}$
+(which has lower energy than $s_n$)
+is called the a cutting edge $(p_n, q_n)$.
+The eigenvalue corresponding to this iteration is $\lambda_n = \exp( -(E_{p_n q_n} - E_{s_n} )/ T )$.
+The two groups of nodes that are created by the cutting edge are $S_1^{(n)}$ and 
+$S_2^{(n)}$.  The first group contains $s_n$ and the latter group contains $s_n^{old}$.  
+The eigenvector of this iteration has the form
+\begin{equation}
+\evec{i}{n} = a_1 \delta (i \in S_1^{(n)}) - a_2 \delta (i \in S_2^{(n)})
+\end{equation}
+It satisfies the normalization conditions
+\begin{equation}
+  0 = \sum_i \evec{i}{0} \evec{i}{n} \pi_i
+  = a_1 \sum_{i \in S_1^{(n)}} \pi_i
+  - a_2 \sum_{i \in S_2^{(n)}} \pi_i
+  = a_1 \pi_{S_1^{(n)}}
+  - a_2 \pi_{S_2^{(n)}}
+\end{equation}
+and
+\begin{equation}
+  1 = \sum_i \evec{i}{n} \evec{i}{n} \pi_i
+  = a_1^2 \pi_{S_1^{(n)}}
+  + a_2^2 \pi_{S_2^{(n)}}
+  .
+\end{equation}
+This leads to the solution
+\begin{equation}
+  a_1 = \sqrt{ \frac{ \pi_{S_2^{(n)}}} { \pi_{S_1^{(n)}}} }
+  \left( \pi_{S_1^{(n)}} + \pi_{S_2^{(n)}} \right)^{-1/2}
+\end{equation}
+\begin{equation}
+  a_2 = \sqrt{ \frac{ \pi_{S_1^{(n)}}} { \pi_{S_2^{(n)}}} }
+  \left( \pi_{S_1^{(n)}} + \pi_{S_2^{(n)}} \right)^{-1/2}
+\end{equation}
+or
+\begin{equation}
+\evec{i}{n} = 
+  \sqrt{ \frac{ \pi_{S_2^{(n)}}}{
+  \pi_{S_1^{(n)}} + \pi_{S_2^{(n)}} }}
+  \left[
+    \pi_{S_1^{(n)}}^{-1/2}
+  \delta (i \in S_1^{(n)}) - 
+  \frac{\pi_{S_1^{(n)}}^{1/2}}{\pi_{S_2^{(n)}}}  \delta (i \in S_2^{(n)})
+  \right]
+\end{equation}
+If we call the common prefactor $A_n$ then the eigenvector can be written as
+\begin{equation}
+\evec{i}{n} = A_n
+\begin{cases}
+    \pi_{S_1^{(n)}}^{-1/2} & i \in S^{(n)}_1 \\
+  - \frac{\pi_{S_1^{(n)}}^{1/2}}{\pi_{S_2^{(n)}}} & i \in S^{(n)}_2 \\
+0 & \text{else}
+\end{cases}
+\end{equation}
+In the scaling limit $T \to 0$ we have $\pi_{S_2^{(n)}} >> \pi_{S_1^{(n)}}$
+so $A_n \to 1$.
+If there is an absorbing state $i^*$ with infinitely low energy energy 
+it will be in $S_2^{(n)}$.  
+If we write $\pi_i = P \exp ( -E_i / T )$ and leave $P=1$ ($\pi$ unnormalized)
+then even if $i^*$ is in $S_2^{(n)}$ all terms of $\evec{}{n}$ will remain finite and 
+or go to zero.
+If $\pi$ is normalized then $\pi_{S_2^{(n)}} \to 1$ and $\pi_{S_1^{(n)}} \to 0$.
+Some of the elements of $\phi$ will diverge and some will go to zero.
+This is a bad state to be in, so we will prefer to take $\pi$ to be unnormalized.
+
+The one downside of using an unnormalized $\pi$ is that $\evec{}{0}$ will not be normalized
+$\sum_i \evec{i}{0} \evec{i}{0} \pi_i = \sum_i \pi_i \neq 1$
+
+\subsection{approximate pseudo-inverse of $K$}
+
+Here I will write out the elements of the pseudo-inverse $K^{+}$ in explicit detail.
+Where $K^+$ is constructed from the approximate eigenvectors.
+\begin{equation}
+  K^{+}_{ij} = \sum_{n=1}^{N-1} \lambda_n^{-1} \evec{i}{n} \evec{j}{n} \pi_j
+\end{equation}
+\begin{equation}
+  K^{+}_{ij} = \sum_{n=1}^{N-1} \lambda_n^{-1} A_n^2 \pi_j 
+  \begin{cases}
+    \pi_{S_1^{(n)}}^{-1} & i \in S^{(n)}_1  j \in S^{(n)}_1 \\
+  - \pi_{S_2^{(n)}}^{-1} & i \in S^{(n)}_1 j \in S^{(n)}_2 \\
+  - \pi_{S_2^{(n)}}^{-1} & i \in S^{(n)}_2 j \in S^{(n)}_1 \\
+    \frac{\pi_{S_1^{(n)}}}{\pi_{S_2^{(n)}}^2} & i \in S^{(n)}_2 j \in S^{(n)}_2 \\
+  0 & \text{else}
+  \end{cases}
+\end{equation}
+Again, if $i^*$ is an absorbing state then $K^+$ will be well behaved except possibly if
+$j = i^*$.  In this case $\pi_j  \to \infty$.   But then, if $j \in S_2^{(n)}$ there is always at least one
+term of $\pi_{S_2^{(n)}}^{-1}$ to balence it.  If $j \notin S_2^{(n)}$ the term will be $0$ because 
+$j$ cannot be in $S_1^{(n)}$.  So again, all elements of $K^{+}$ are well behaved,
+either finite or zero if $i^*$ is an absorbing state.
+$K^+$ has `units' of $[\pi]^0$ so it doesn't actually matter if $\pi$ is normalized or not.  
+All apperances of $P$ will cancel.
+
+
 \subsection{approximate conditioned submatrix}
 if we remove index $i^{*}$ then the conditioned submatrix is computed as
 \begin{equation}
