@@ -646,7 +646,7 @@ class _EigenvectorRepresentation(object):
 
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
-    def __init__(self, Ei, Eij, T=.1, verbose=True, normalize_pi=True):
+    def __init__(self, Ei, Eij, T=.1, verbose=True, normalize_pi=False):
         self.Ei = Ei
         self.Eij = Eij
         self.T = T
@@ -999,6 +999,7 @@ class MSTPreconditioning(object):
         Emin = min(Ei.itervalues())
         for s in sinks:
             Ei[s] = Emin - 5
+        print "energies", Ei
         return Ei
 
         
@@ -1661,11 +1662,15 @@ def test_precond2(n=8, T=.01):
     seed = 5699024 #n=6
     seed = 1492541 #n=5
     seed = 8833179 #n=4
+    seed = 9841257 #n=3
 #    seed = 10
 #    seed = np.random.randint(10000000)
     print "seed", seed
     np.random.seed(seed)
     Ei, Eij = make_random_energies_complete(n)
+    if seed == 9841257:
+        print "WARNING: removing edge 1,2"
+        Eij.pop((1,2))
     print "energies", Ei
     print "transition state energies"
     for (i,j), e in Eij.iteritems():
@@ -1683,4 +1688,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
     mpmath.mp.dps = 2000
 #     test1()
-    test_precond2(n=3, T=.052)
+    test_precond2(n=3, T=.1052)

@@ -633,10 +633,98 @@ then
 \begin{equation}
 \sum_k K_{i,k} K^+_{k,j} = \sum_k K^+_{i,k} K_{k,j} = \delta_{i,j} - \pi_j 
 \end{equation}
-These relations are illustrated in the matlab code attached below. They should hold both for the true spectral decomposition of K and for the approximated one (since it also define a generator). Can you check?
+These relations are illustrated in the matlab code attached below. They should hold both for the true spectral 
+decomposition of K and for the approximated one (since it also define a generator). Can you check?
 
 Next I’ll check the formulas for the MFPT.
 
+
+\section{example to show that the conditioned matrix does not approach $\delta_{ij} - \pi_j$}
+we showed earlier that for the exact eigenvalues, the conditioned matrix $K^+ K = \delta_{ij} - \pi_j$.
+This does not necessarily hold for our approximation of the eigenvectors.  This 3-node example demonstrates
+this fact.
+The network has the following energies 
+$E_0 = 0.08$,
+$E_1 = -6$,
+$E_2 = 2.98$,
+$E_{01} = .29$,
+and
+$E_{02} = 5.2$.
+
+The 0th eigenvalue is the zero eigenvalue.  The first eigenvalue is the second smallest and is
+\begin{equation}
+\lambda_1 = - \pi_{02} / \pi_2
+\end{equation}  
+where we use the notation $\pi_{ij} = \exp (-E_{ij} / T)$.
+The equilibrium occupation probabilities can be normalized or not, it doesn't make a difference.
+The cutting edge $(0,2)$ divides the network into $S_1 = \{2\}$ and $S_2 = \{0,1\}$.  The first
+eigenvector is then
+\begin{equation}
+\phi^{(1)} = \sqrt{ \frac{\pi_{S_2}}{\pi_{S_1} + \pi_{S_2}}}
+\begin{pmatrix}
+-\pi_{S_1}^{1/2} / \pi_{S_2} \\
+-\pi_{S_1}^{1/2} / \pi_{S_2} \\
+\pi_{S_1}^{-1/2}
+\end{pmatrix}
+\end{equation}
+We use the notation $\pi_{S_i} = \sum_{k \in S_i} \pi_k$
+
+The second eigenvalue is 
+\begin{equation}
+\lambda_2 = -\pi_{01} / \pi_1
+.
+\end{equation} 
+The cutting edge simply cuts the two remaining nodes 0 and 1.
+The eigenvector is then
+\begin{equation}
+\phi^{(2)} = \sqrt{ \frac{\pi_{1}}{\pi_{0} + \pi_{1}}}
+\begin{pmatrix}
+\pi_{0}^{-1/2} \\
+-\pi_{0}^{1/2} / \pi_{1} \\
+0
+\end{pmatrix}
+\end{equation}
+
+We will now calculate the $(2,0)$ element of the conditioned matrix.  We should find that this
+is equal to $\delta_{20} - \pi_0 = -\pi_0$.
+\begin{align}
+  \left(K^+ K \right)_{20} = & \sum_{n=1}^{N-1} \lambda_n^{-1} \phi_2^{(n)} \sum_k \phi_k^{(n)} \pi_k K_{k0} \\
+= & \lambda_1^{-1} \phi_2^{(1)} \sum_k \phi_k^{(1)} \pi_k K_{k0}
++ \lambda_2^{-1} \phi_2^{(2)} \sum_k \phi_k^{(2)} \pi_k K_{k0}
+\end{align}
+Immediately we can eliminate the second term because $\phi_2^{(2)} = 0$.
+Using $\pi_{1} K_{10} = \pi_{01}$, and similar equations for the other terms we have (note: this 
+assumes that $\pi$ is un-normalized, but again, it doesn't matter for the final result.  The normalization 
+terms will all cancel.)
+\begin{equation}
+\left(K^+ K \right)_{20} =  \lambda_1^{-1} \phi_2^{(1)} \left[ 
+\phi_0^{(1)} \left( - \pi_{01} - \pi_{02} \right)
++ \phi_1^{(1)} \pi_{01} 
++ \phi_2^{(1)} \pi_{02} 
+\right]
+\end{equation}
+$\phi_0^{(1)} = \phi_1^{(1)}$ so some of the terms cancel
+\begin{equation}
+\left(K^+ K \right)_{20} =  \lambda_1^{-1} \phi_2^{(1)}  \pi_{02} \left[ 
+-\phi_0^{(1)}
++ \phi_2^{(1)}
+\right]
+\end{equation}
+Plugging everything in we find
+\begin{align}
+\left(K^+ K \right)_{20} = & -\frac{\pi_2}{\pi_{02}} \frac{\pi_{S_2}}{\pi_{S_1} + \pi_{S_2}}  \pi_{S_1}^{-1/2} \pi_{02} \left[ 
+\pi_{S_1}^{1/2} / \pi_{S_2}
++ \pi_{S_1}^{-1/2}
+\right] \\
+= & -\pi_2 \frac{\pi_{S_2}}{\pi_{S_1} + \pi_{S_2}} \left[ 
+\pi_{S_2}^{-1}
++ \pi_{S_1}^{-1}
+\right] \\
+= & -\pi_2 /
+\pi_{S_1} = -1
+\end{align}
+Which is definitely not $-\pi_0$ as we expected.  All these results hold even in the limit of zero temperature.  
+Also, even if $\pi$ is normalized, $\pi_0$ never approaches $1$ because node 0 is not the lowest energy node.
 
 
 \end{document}
