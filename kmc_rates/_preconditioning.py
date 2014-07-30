@@ -646,7 +646,7 @@ class _EigenvectorRepresentation(object):
 
 class MSTSpectralDecomposition(object):
     """spectral decomposition of a graph using the minimum spanning tree in the limit of small T"""
-    def __init__(self, Ei, Eij, T=.1, verbose=True, normalize_pi=False):
+    def __init__(self, Ei, Eij, T=.1, verbose=True, normalize_pi=True):
         self.Ei = Ei
         self.Eij = Eij
         self.T = T
@@ -804,6 +804,13 @@ class MSTSpectralDecomposition(object):
 #         self.eigenvector_indicator[is1,k] =  1
 #         self.eigenvector_indicator[is2,k] = -1
 
+        if True:
+            if k == 2:
+                print "inverting the sign of the 2nd eigenvector"
+                self.eigenvectors[:,k] *= -1
+                self.eigenvectors_mp[:,k] *= -1
+                self.eigenvector_indicator[:,k] *= -1
+
     def _test_eigenvectors(self, evals=None, evecs=None, m=None, pi=None):
         if evals is None:
             evals = self.eigenvalues
@@ -835,6 +842,14 @@ class MSTSpectralDecomposition(object):
             v = evecs[:,k]
             l = np.dot(v*pi, np.dot(m, v))
             print "k", k, ":", l, "=?=", evals[k], "normalized |diff|", np.abs((l-evals[k])/l)
+        
+        print "testing to see if the eigenvectors satisfy the transposed orthogonality condition sum_n v[i,n] v[j,n] pi_j = delta_ij"
+        sumpi = np.sum(pi)
+        for i in xrange(len(evals)):
+            for j in xrange(i,len(evals)):
+                val = np.sum(evecs[i,:] * evecs[j,:]) * pi[j]
+                print "  ", i, j, ":", val
+            
 
     def run(self):
         self.mst = self._make_minimum_spanning_tree()
@@ -1069,13 +1084,35 @@ class MSTPreconditioning(object):
                     for k in xrange(self.spect.nnodes): # matrix multiplication index
                         if k == iremove:
                             continue
-                        M[inew,jnew] -= (
-                                         evecs[i,n]
-                                         * evecs[k,n]
-                                         * pi[k]
-                                         * K[k,j]
-                                         / evals[n] 
-                                         )
+                        val = -(
+                                 evecs[i,n]
+                                 * evecs[k,n]
+                                 * pi[k]
+                                 * K[k,j]
+                                 / evals[n]
+                                 )
+                        M[inew,jnew] += val
+                        if i == 2 and j == 0:
+                            print "making M", n, k, float(val), float(M[inew, jnew]), float(evecs[k,n]), float(pi[k]), float(K[k,j]), float(pi[k] * K[k,j])
+                    if i == 2 and j == 0:
+                        print "        ", float(M[inew, jnew])
+        if True:
+            i = 2
+            j = 0
+            mval = 0
+            for n in xrange(1,3):
+                for k in xrange(3):
+                    val = -(
+                             self.exact_evecs[i,n]
+                             * self.exact_evecs[k,n]
+                             * pi[k]
+                             * K[k,j]
+                             / self.exact_evals[n]
+                             )
+                    mval += val
+                    print "making M exact", n, k, float(val), float(mval)
+                print "              ", float(mval)
+
         return M
 
     def make_preconditioned_submatrix(self, iremove=None, mp=True):
@@ -1391,8 +1428,14 @@ class MSTPreconditioning(object):
                 v = xevecs[:,k]
                 xmat += xevals[k] * np.outer(v, v * pi)
                 xmat_inv += 1./xevals[k] * np.outer(v, v * pi)
+            print "exact eigenvectors (normalized to sum(v*v*pi) = 1)"
+            print_matrix(xevecs)
+            self.exact_evals = xevals
+            self.exact_evecs = xevecs
 
-        
+
+        print "testing exact eigenvectors"
+        self.spect._test_eigenvectors(xevals, xevecs, m, pi)
 #        for k in xrange(1,n):
 #            v = evecs[:,k]
 #            mat += evals[k] * np.outer(v, v * pi)
@@ -1640,4 +1683,4 @@ if __name__ == "__main__":
     from tests.test_preconditioning import make_random_energies_complete, get_eigs
     mpmath.mp.dps = 2000
 #     test1()
-    test_precond2(n=3, T=.2)
+    test_precond2(n=3, T=.052)
