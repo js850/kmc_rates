@@ -416,24 +416,30 @@ class TwoStateRates(object):
         
         return rate / norm
     
+    def get_alternate_committors(self, Agroup, Bgroup):
+        """for each node a in A, compute the probability that it ends up in 
+        B before coming back to itself or reaching another node in A.
+        """
+        a_committors = dict([(a, 0.) for a in Agroup])
+        for uv, rate in self.rate_constants.iteritems():
+            u, v = uv
+            if u in Agroup and v not in Agroup:
+                if v in Bgroup:
+                    vcomm = 1.
+                else:
+                    vcomm = self.committor_dict[v]
+                a_committors[u] += rate * vcomm
+        for a in Agroup:
+            a_committors[a] /= self.sum_out_rates[a]
+        return a_committors
+
     def get_rate_AB_SS(self):
         """
         return the steady state rate from A to B
         """
         # for each node a in A, compute the probability that it ends up in
         # B before coming back to itself or reaching another node in A.
-        a_committors = dict([(a, 0.) for a in self.A])
-        for uv, rate in self.rate_constants.iteritems():
-            u, v = uv
-            if u in self.A and v not in self.A:
-                if v in self.B:
-                    vcomm = 1.
-                else:
-                    vcomm = self.committor_dict[v]
-                a_committors[u] += rate * vcomm
-        for a, c in a_committors.iteritems():
-            a_committors[a] /= self.sum_out_rates[a]
-        # the sum_out_rates cancels here, we can remove it
+        a_committors = self.get_alternate_committors(self.A, self.B)
         
         rate = sum((self.weights[a] * a_committors[a] * self.sum_out_rates[a] for a in self.A))
         norm = sum((self.weights[a] for a in self.A))
@@ -469,4 +475,4 @@ class TwoStateRates(object):
         self.committor_computer = CommittorLinalg(self.rate_constants, self.A, self.B)
         self.committor_dict = self.committor_computer.compute_committors()
         return self.committor_dict
-        
+
