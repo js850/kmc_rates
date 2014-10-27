@@ -26,6 +26,7 @@
 #include <set>
 #include <assert.h>
 #include <stdexcept>
+#include <memory>
 
 
 namespace graph_ns
@@ -299,6 +300,19 @@ public:
 
 };
 
+inline std::ostream &operator<<(std::ostream &out, std::shared_ptr<Graph> g) {
+    out << "nodes\n";
+    out << "-----\n";
+    for (auto const & nn : g->node_map_) {
+        out << nn.first << " tau " << nn.second->tau << "\n";
+    }
+    out << "edges\n";
+    out << "-----\n";
+    for (auto const & e : g->edge_list_) {
+        out << e->tail_->id() << " -> " << e->head_->id() << " P " << e->P << "\n";
+    }
+    return out;
+}
 
 }
 

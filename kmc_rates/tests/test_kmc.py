@@ -4,6 +4,7 @@ import numpy as np
 from kmc_rates import GraphReduction, TwoStateRates, KineticMonteCarlo
 from test_graph_transformation import _MakeRandomGraph, _three_state_graph
 
+np.random.seed(0)
 
 class TestKMC(unittest.TestCase):
     def setUp(self):
